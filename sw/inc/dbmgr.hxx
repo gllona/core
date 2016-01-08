@@ -274,7 +274,7 @@ class SW_DLLPUBLIC SwDBManager
     SAL_DLLPRIVATE bool MergeMailFiles( SwWrtShell* pSh,
                                         const SwMergeDescriptor& rMergeDescriptor );
 
-    SAL_DLLPRIVATE bool ToNextMergeRecord();
+    SAL_DLLPRIVATE bool ToNextMergeRecord(const sal_uInt16 nSkip = 0);
     SAL_DLLPRIVATE bool IsValidMergeRecord() const;
 
     SwDBManager(SwDBManager const&) = delete;

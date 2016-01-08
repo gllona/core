@@ -161,7 +161,8 @@ void lcl_emitEvent(SfxEventHintId nEventId, sal_Int32 nStrId, SfxObjectShell* pD
 }
 
 enum class SwDBNextRecord { NEXT, FIRST };
-static bool lcl_ToNextRecord( SwDSParam* pParam, const SwDBNextRecord action = SwDBNextRecord::NEXT );
+static bool lcl_ToNextRecord( SwDSParam* pParam, const sal_uInt16 nSkip = 0,
+                              const SwDBNextRecord action = SwDBNextRecord::NEXT );
 
 enum class WorkingDocType { SOURCE, TARGET, COPY };
 static SfxObjectShell* lcl_CreateWorkingDocument(
@@ -506,7 +507,7 @@ bool SwDBManager::Merge( const SwMergeDescriptor& rMergeDesc )
         pImpl->pMergeData->xConnection = xConnection;
     // add an XEventListener
 
-    lcl_ToNextRecord(pImpl->pMergeData, SwDBNextRecord::FIRST);
+    lcl_ToNextRecord(pImpl->pMergeData, 0, SwDBNextRecord::FIRST);
 
     uno::Reference<sdbc::XDataSource> xSource = SwDBManager::getDataSourceAsParent(xConnection,aData.sDataSource);
 
@@ -1267,6 +1268,8 @@ bool SwDBManager::MergeMailFiles(SwWrtShell* pSourceShell,
     // it can be manually computed from the source documents (for which we do layouts, so the page
     // count is known, and there is a blank page between each of them in the target document).
     int targetDocPageCount = 0;
+    sal_Int32 nRecordPerDoc = pSourceShell->GetDoc()
+        ->getIDocumentFieldsAccess().GetRecordsPerDocument();
 
     if( !bIsMergeSilent && !bMT_PRINTER )
     {
@@ -1276,8 +1279,6 @@ bool SwDBManager::MergeMailFiles(SwWrtShell* pSourceShell,
         // syncronized docs don't auto-advance the record set, but there is a
         // "security" check, which will always advance the record set, if there
         // is no "next record" field in a synchronized doc => nRecordPerDoc > 0
-        sal_Int32 nRecordPerDoc = pSourceShell->GetDoc()
-                ->getIDocumentFieldsAccess().GetRecordsPerDocument();
         if ( bSynchronizedDoc && (nRecordPerDoc > 1) )
             --nRecordPerDoc;
         assert( nRecordPerDoc > 0 );
@@ -1313,6 +1314,14 @@ bool SwDBManager::MergeMailFiles(SwWrtShell* pSourceShell,
         if( bMT_EMAIL || bColumnName )
         {
             sColumnData = GetDBField( xColumnProp, aColumnDBFormat );
+            if( bMT_EMAIL && !SwMailMergeHelper::CheckMailAddress( sColumnData ) )
+            {
+                OSL_FAIL("invalid e-Mail address in database column");
+                nDocNo++;
+                ToNextMergeRecord( nRecordPerDoc );
+                nEndRow = pImpl->pMergeData ? pImpl->pMergeData->xResultSet->getRow() : 0;
+                continue;
+            }
         }
 
         // create a new temporary file name - only done once in case of bCreateSingleFile
@@ -1474,21 +1483,14 @@ bool SwDBManager::MergeMailFiles(SwWrtShell* pSourceShell,
                     // schedule file for later removal
                     aFilesToRemove.push_back( sFileURL );
 
-                    if( !SwMailMergeHelper::CheckMailAddress( sColumnData ) )
-                    {
-                        OSL_FAIL("invalid e-Mail address in database column");
-                    }
-                    else
-                    {
-                        uno::Reference< mail::XMailMessage > xMessage = lcl_CreateMailFromDoc(
+                    uno::Reference< mail::XMailMessage > xMessage = lcl_CreateMailFromDoc(
                             rMergeDescriptor, sFileURL, sColumnData, sMailBodyMimeType,
                             sMailEncoding, pStoreToFilter->GetMimeType() );
-                        if( xMessage.is() )
-                        {
-                            xMailDispatcher->enqueueMailMessage( xMessage );
-                            if( !xMailDispatcher->isStarted() )
-                                xMailDispatcher->start();
-                        }
+                    if( xMessage.is() )
+                    {
+                        xMailDispatcher->enqueueMailMessage( xMessage );
+                        if( !xMailDispatcher->isStarted() )
+                            xMailDispatcher->start();
                     }
                 }
             }
@@ -2082,10 +2084,10 @@ bool    SwDBManager::GetMergeColumnCnt(const OUString& rColumnName, sal_uInt16 n
     return bRet;
 }
 
-bool SwDBManager::ToNextMergeRecord()
+bool SwDBManager::ToNextMergeRecord( const sal_uInt16 nSkip )
 {
     assert( pImpl->pMergeData && pImpl->pMergeData->xResultSet.is() && "no data source in merge" );
-    return lcl_ToNextRecord( pImpl->pMergeData );
+    return lcl_ToNextRecord( pImpl->pMergeData, nSkip );
 }
 
 bool SwDBManager::FillCalcWithMergeData( SvNumberFormatter *pDocFormatter,
@@ -2168,7 +2170,7 @@ bool SwDBManager::ToNextRecord(
     return lcl_ToNextRecord( pFound );
 }
 
-static bool lcl_ToNextRecord( SwDSParam* pParam, const SwDBNextRecord action )
+static bool lcl_ToNextRecord( SwDSParam* pParam, const sal_uInt16 nSkip, const SwDBNextRecord action )
 {
     bool bRet = true;
 
@@ -2201,12 +2203,18 @@ static bool lcl_ToNextRecord( SwDSParam* pParam, const SwDBNextRecord action )
         }
         else if( action == SwDBNextRecord::FIRST )
         {
-            pParam->bEndOfDB = !pParam->xResultSet->first();
+            if( 0 == nSkip )
+                pParam->bEndOfDB = !pParam->xResultSet->first();
+            else
+                pParam->bEndOfDB = !pParam->xResultSet->absolute( nSkip );
         }
         else
         {
             sal_Int32 nBefore = pParam->xResultSet->getRow();
-            pParam->bEndOfDB = !pParam->xResultSet->next();
+            if( 0 == nSkip )
+                pParam->bEndOfDB = !pParam->xResultSet->next();
+            else
+                pParam->bEndOfDB = !pParam->xResultSet->absolute( nBefore + nSkip );
             if( !pParam->bEndOfDB && nBefore == pParam->xResultSet->getRow() )
             {
                 // next returned true but it didn't move
@@ -2214,7 +2222,7 @@ static bool lcl_ToNextRecord( SwDSParam* pParam, const SwDBNextRecord action )
             }
         }
 
-        ++pParam->nSelectionIndex;
+        pParam->nSelectionIndex += 1 + nSkip;
         bRet = !pParam->bEndOfDB;
     }
     catch( const uno::Exception &e )
