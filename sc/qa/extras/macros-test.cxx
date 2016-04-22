@@ -21,6 +21,8 @@
 
 #include <basic/sbxdef.hxx>
 
+#include <config_test.h>
+
 #include "docsh.hxx"
 #include "patattr.hxx"
 #include "scitems.hxx"
@@ -294,7 +296,9 @@ void ScMacrosTest::testVba()
     osl::FileBase::getSystemPathFromFileURL( sTempDirURL, sTempDir );
     sTempDir += OUStringLiteral1(SAL_PATHDELIMITER);
     OUString sTestFileName("My Test WorkBook.xls");
+#if ! TEST_FONTS_MISSING
     Sequence< uno::Any > aParams;
+#endif
     for ( sal_uInt32  i=0; i<SAL_N_ELEMENTS( testInfo ); ++i )
     {
         OUString aFileName;
@@ -308,10 +312,17 @@ void ScMacrosTest::testVba()
         // time - while processing other StarBasic methods.
         Application::Reschedule(true);
 
+        SfxObjectShell* pFoundShell = SfxObjectShell::GetShellFromComponent(xComponent);
+
+        CPPUNIT_ASSERT_MESSAGE("Failed to access document shell", pFoundShell);
+        SAL_INFO("sc.qa", "about to invoke vba test in " << aFileName << " with url " << testInfo[i].sMacroUrl);
+
+        bool bWorkbooksHandling = OUString( testInfo[i].sFileBaseName ) == "Workbooks." && !sTempDir.isEmpty() ;
+
+#if ! TEST_FONTS_MISSING
         Any aRet;
         Sequence< sal_Int16 > aOutParamIndex;
         Sequence< Any > aOutParam;
-        bool bWorkbooksHandling = OUString( testInfo[i].sFileBaseName ) == "Workbooks." && !sTempDir.isEmpty() ;
 
         if ( bWorkbooksHandling )
         {
@@ -320,11 +331,6 @@ void ScMacrosTest::testVba()
             aParams[ 1 ] <<= sTestFileName;
         }
 
-        SfxObjectShell* pFoundShell = SfxObjectShell::GetShellFromComponent(xComponent);
-
-        CPPUNIT_ASSERT_MESSAGE("Failed to access document shell", pFoundShell);
-        SAL_INFO("sc.qa", "about to invoke vba test in " << aFileName << " with url " << testInfo[i].sMacroUrl);
-
         SfxObjectShell::CallXScript(
             xComponent, testInfo[i].sMacroUrl, aParams, aRet, aOutParamIndex,
             aOutParam);
@@ -332,6 +338,8 @@ void ScMacrosTest::testVba()
         aRet >>= aStringRes;
         CPPUNIT_ASSERT_EQUAL_MESSAGE(
             "script reported failure", OUString("OK"), aStringRes);
+#endif
+
         pFoundShell->DoClose();
         if ( bWorkbooksHandling )
         {

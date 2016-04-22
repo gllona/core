@@ -45,6 +45,8 @@
 #include <sfx2/request.hxx>
 #include <svx/svxids.hrc>
 
+#include <config_test.h>
+
 using namespace css;
 
 static const char* const DATA_DIRECTORY = "/sd/qa/unit/tiledrendering/data/";
@@ -361,6 +363,7 @@ void SdTiledRenderingTest::testPostMouseEvent()
     // Did we manage to go after the first character?
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(1), rEditView.GetSelection().nStartPos);
 
+#if ! TEST_FONTS_MISSING
     vcl::Cursor* pCursor = rEditView.GetCursor();
     Point aPosition(pCursor->GetPos().getX(), pCursor->GetPos().getY() + pCursor->GetSize().Height() / 2);
     aPosition.setX(aPosition.getX() - 1000);
@@ -373,6 +376,7 @@ void SdTiledRenderingTest::testPostMouseEvent()
     CPPUNIT_ASSERT(pView->GetTextEditObject());
     // The new cursor position must be before the first word.
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0), rEditView.GetSelection().nStartPos);
+#endif
     comphelper::LibreOfficeKit::setActive(false);
 }
 
