@@ -449,7 +449,7 @@ void SfxDispatcher::Construct_Impl( SfxDispatcher* pParent )
 
     xImp->xPoster = new SfxHintPoster(aGenLink);
 
-    xImp->aIdle.SetPriority(SchedulerPriority::MEDIUM);
+    xImp->aIdle.SetPriority(SchedulerPriority::HIGH_IDLE );
     xImp->aIdle.SetIdleHdl( LINK(this, SfxDispatcher, EventHdl_Impl ) );
     xImp->aIdle.SetDebugName( "sfx::SfxDispatcher_Impl aIdle" );
 }
@@ -577,8 +577,6 @@ void SfxDispatcher::Pop(SfxShell& rShell, SfxDispatcherPopFlags nMode)
     if(!pSfxApp->IsDowning() && !xImp->aToDoStack.empty())
     {
         // No immediate update is requested
-        xImp->aIdle.SetPriority(SchedulerPriority::MEDIUM);
-        xImp->aIdle.SetIdleHdl( LINK(this, SfxDispatcher, EventHdl_Impl ) );
         xImp->aIdle.Start();
     }
     else
@@ -780,8 +778,6 @@ void SfxDispatcher::DoActivate_Impl(bool bMDI)
     if(!xImp->aToDoStack.empty())
     {
         // No immediate update is requested
-        xImp->aIdle.SetPriority(SchedulerPriority::MEDIUM);
-        xImp->aIdle.SetIdleHdl( LINK(this, SfxDispatcher, EventHdl_Impl ) );
         xImp->aIdle.Start();
     }
 }

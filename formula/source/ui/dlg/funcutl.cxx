@@ -409,7 +409,6 @@ RefEdit::RefEdit( vcl::Window* _pParent, vcl::Window* pShrinkModeLabel, WinBits 
     , pLabelWidget(pShrinkModeLabel)
 {
     aIdle.SetIdleHdl( LINK( this, RefEdit, UpdateHdl ) );
-    aIdle.SetPriority( SchedulerPriority::LOW );
 }
 
 VCL_BUILDER_DECL_FACTORY(RefEdit)
@@ -478,7 +477,6 @@ void RefEdit::SetReferences( IControlReferenceHandler* pDlg, vcl::Window* pLabel
     if( pDlg )
     {
         aIdle.SetIdleHdl( LINK( this, RefEdit, UpdateHdl ) );
-        aIdle.SetPriority( SchedulerPriority::LOW );
     }
     else
     {

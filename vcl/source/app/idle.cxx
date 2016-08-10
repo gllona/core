@@ -34,6 +34,7 @@ Idle& Idle::operator=( const Idle& rIdle )
 
 Idle::Idle( const sal_Char *pDebugName ) : Scheduler( pDebugName )
 {
+    mePriority = SchedulerPriority::DEFAULT_IDLE;
 }
 
 Idle::Idle( const Idle& rIdle ) : Scheduler(rIdle)
@@ -50,8 +51,7 @@ void Idle::Start()
     {
         switch (mePriority)
         {
-            case SchedulerPriority::LOW:
-            case SchedulerPriority::LOWER:
+            case SchedulerPriority::DEFAULT_IDLE:
             case SchedulerPriority::LOWEST:
                 nPeriod = Scheduler::InfiniteTimeoutMs;
                 break;
@@ -71,7 +71,7 @@ bool Idle::ReadyForSchedule( const sal_uInt64 /* nTime */ ) const
 
 void Idle::UpdateMinPeriod( const sal_uInt64 /* nTime */, sal_uInt64 &nMinPeriod ) const
 {
-    nMinPeriod = ImmediateTimeoutMs;
+    nMinPeriod = ImmediateTimeoutMs; // don't wait
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */
