@@ -41,8 +41,7 @@ void Idle::Start()
     {
         switch ( GetPriority() )
         {
-            case TaskPriority::LOW:
-            case TaskPriority::LOWER:
+            case TaskPriority::DEFAULT_IDLE:
             case TaskPriority::LOWEST:
                 nPeriod = Scheduler::InfiniteTimeoutMs;
                 break;

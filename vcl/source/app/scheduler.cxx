@@ -503,7 +503,7 @@ bool Task::IsActive() const
 Task::Task( const sal_Char *pDebugName )
     : mpSchedulerData( nullptr )
     , mpDebugName( pDebugName )
-    , mePriority( TaskPriority::HIGH )
+    , mePriority( TaskPriority::DEFAULT )
     , meStatus( TaskStatus::STOPPED )
 {
 }
