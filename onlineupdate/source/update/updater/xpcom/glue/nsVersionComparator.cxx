@@ -12,7 +12,6 @@
 #if defined(_WIN32) && !defined(UPDATER_NO_STRING_GLUE_STL)
 #include <wchar.h>
 #include <stdint.h>
-#include "mozilla/Char16.h"
 #endif
 
 #ifdef _WIN32
