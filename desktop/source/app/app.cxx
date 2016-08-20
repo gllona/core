@@ -36,6 +36,7 @@
 #include "userinstall.hxx"
 #include "desktopcontext.hxx"
 #include "migration.hxx"
+#include "updater.hxx"
 
 #include <svl/languageoptions.hxx>
 #include <svtools/javacontext.hxx>
@@ -1462,6 +1463,13 @@ int Desktop::Main()
         //  Read the common configuration items for optimization purpose
         if ( !InitializeConfiguration() )
             return EXIT_FAILURE;
+
+        if (true)
+        {
+            OUString aInstallationDir( "$BRAND_BASE_DIR/" LIBO_LIBEXEC_FOLDER );
+            rtl::Bootstrap::expandMacros(aInstallationDir);
+            Update(aInstallationDir);
+        }
 
         SetSplashScreenProgress(30);
 
