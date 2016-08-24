@@ -36,7 +36,9 @@
 #include "userinstall.hxx"
 #include "desktopcontext.hxx"
 #include "migration.hxx"
+#if HAVE_FEATURE_UPDATE_MAR
 #include "updater.hxx"
+#endif
 
 #include <svl/languageoptions.hxx>
 #include <svtools/javacontext.hxx>
@@ -1247,6 +1249,11 @@ void restartOnMac(bool passArguments) {
 #endif
 }
 
+bool isTimeForUpdateCheck()
+{
+    return true;
+}
+
 }
 
 void Desktop::Exception(ExceptionCategory nCategory)
@@ -1465,22 +1472,35 @@ int Desktop::Main()
         if ( !InitializeConfiguration() )
             return EXIT_FAILURE;
 
+#if HAVE_FEATURE_UPDATE_MAR
         if (officecfg::Office::Update::Update::Enabled::get())
         {
+            OUString aPatchDirPath("${$BRAND_BASE_DIR/" LIBO_ETC_FOLDER "/" SAL_CONFIGFILE("bootstrap") ":UserInstallation}/patch/");
+            rtl::Bootstrap::expandMacros(aPatchDirPath);
 
-            OUString aInstallationDir( "$BRAND_BASE_DIR/" LIBO_LIBEXEC_FOLDER );
+            osl::DirectoryItem aPatchInfo;
+            osl::DirectoryItem::get(aPatchDirPath + "/update.info", aPatchInfo);
 
-            CreateValidUpdateDir(aInstallationDir);
-
-            osl::DirectoryItem aDirectoryItem;
-            osl::DirectoryItem::get("file:///lo/users/moggi/test-inst/updated"/*aInstallationDir + "/updated"*/, aDirectoryItem);
-            bool bValidUpdateDirExists = aDirectoryItem.is();
-            if (bValidUpdateDirExists)
+            if (aPatchInfo.is())
             {
+                OUString aInstallationDir( "$BRAND_BASE_DIR/" LIBO_LIBEXEC_FOLDER );
                 rtl::Bootstrap::expandMacros(aInstallationDir);
-                Update(aInstallationDir);
+                CreateValidUpdateDir(aInstallationDir);
+
+                osl::DirectoryItem aDirectoryItem;
+                osl::DirectoryItem::get(aInstallationDir + "/updated", aDirectoryItem);
+                bool bValidUpdateDirExists = aDirectoryItem.is();
+                if (bValidUpdateDirExists)
+                {
+                    rtl::Bootstrap::expandMacros(aInstallationDir);
+                    Update(aInstallationDir);
+                }
             }
+
+            if (isTimeForUpdateCheck())
+                m_aUpdateThread = std::thread(update_checker);
         }
+#endif
 
         SetSplashScreenProgress(30);
 
@@ -1737,6 +1757,8 @@ int Desktop::doShutdown()
 {
     if( ! pExecGlobals )
         return EXIT_SUCCESS;
+
+    m_aUpdateThread.join();
 
     pExecGlobals->bRestartRequested = pExecGlobals->bRestartRequested ||
         OfficeRestartManager::get(comphelper::getProcessComponentContext())->
