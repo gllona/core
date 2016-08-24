@@ -92,6 +92,9 @@ $(eval $(call gb_Helper_register_executables_for_install,SDK,sdk, \
 ))
 
 $(eval $(call gb_Helper_register_executables_for_install,OOO,brand, \
+	$(if $(ENABLE_ONLINE_UPDATE_MAR),\
+		mar \
+		updater )\
 	$(call gb_Helper_optional,BREAKPAD,minidump_upload) \
 	$(if $(filter-out ANDROID IOS MACOSX WNT,$(OS)),oosplash) \
 	soffice_bin \
@@ -181,13 +184,6 @@ endif
 ifneq ($(ENABLE_PDFIMPORT),)
 $(eval $(call gb_Helper_register_executables_for_install,OOO,pdfimport, \
 	xpdfimport \
-))
-endif
-
-ifneq ($(ENABLE_ONLINE_UPDATE_MAR),)
-$(eval $(call gb_Helper_register_executables_for_install,OOO,updater,\
-		mar \
-		updater \
 ))
 endif
 
