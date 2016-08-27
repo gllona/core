@@ -29,6 +29,9 @@ $(eval $(call gb_Library_use_externals,sofficeapp, \
     boost_headers \
     dbus \
     curl \
+    $(if $(ENABLE_ONLINE_UPDATE_MAR),\
+        orcus-parser \
+        orcus )\
 ))
 
 $(eval $(call gb_Library_use_custom_headers,sofficeapp,\
