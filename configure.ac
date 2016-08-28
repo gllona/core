@@ -1364,6 +1364,10 @@ AC_ARG_ENABLE(online-update,
          If the value is "mar", the experimental Mozilla-like update will be
          enabled instead of the traditional update mechanism.]),
 ,)
+AC_ARG_WITH(update-channel,
+    AS_HELP_STRING([--with-update-channel=master-daily],
+        [Defines the update channel used by the updater.]),
+,with_update_channel=master-daily)
 
 AC_ARG_ENABLE(extension-update,
     AS_HELP_STRING([--disable-extension-update],
@@ -11539,6 +11543,7 @@ dnl ===================================================================
 AC_MSG_CHECKING([whether to enable online update])
 ENABLE_ONLINE_UPDATE=
 ENABLE_ONLINE_UPDATE_MAR=
+UPDATE_CHANNEL=
 if test "$enable_online_update" = ""; then
     if test "$_os" = "WINNT" -o "$_os" = "Darwin"; then
         AC_MSG_RESULT([yes])
@@ -11551,6 +11556,7 @@ else
         AC_MSG_RESULT([yes - MAR-based online update])
         ENABLE_ONLINE_UPDATE_MAR="TRUE"
         AC_DEFINE(HAVE_FEATURE_UPDATE_MAR)
+        UPDATE_CHANNEL="$with_update_channel"
     elif test "$enable_online_update" = "yes"; then
         AC_MSG_RESULT([yes])
         ENABLE_ONLINE_UPDATE="TRUE"
@@ -11560,6 +11566,7 @@ else
 fi
 AC_SUBST(ENABLE_ONLINE_UPDATE)
 AC_SUBST(ENABLE_ONLINE_UPDATE_MAR)
+AC_SUBST(UPDATE_CHANNEL)
 
 dnl ===================================================================
 dnl Test whether we need bzip2
