@@ -1364,10 +1364,21 @@ AC_ARG_ENABLE(online-update,
          If the value is "mar", the experimental Mozilla-like update will be
          enabled instead of the traditional update mechanism.]),
 ,)
+
 AC_ARG_WITH(update-channel,
     AS_HELP_STRING([--with-update-channel=master-daily],
         [Defines the update channel used by the updater.]),
 ,with_update_channel=master-daily)
+
+AC_ARG_WITH(update-certificate-name,
+    AS_HELP_STRING([--with-update-certificate-name=master-daily],
+                   [Defines the name of the certificate that should be used to sign the mar files.
+                    This makes only sense if the onlineupdate is used and the mar files should be uploaded.]))
+
+AC_ARG_WITH(update-certificate-path,
+    AS_HELP_STRING([--with-update-certificate-name=master-daily],
+                   [Defines the path to the nss certificate store used for the updater
+                    This makes only sense if the onlineupdate is used and the mar files should be uploaded.]))
 
 AC_ARG_ENABLE(extension-update,
     AS_HELP_STRING([--disable-extension-update],
@@ -11544,6 +11555,8 @@ AC_MSG_CHECKING([whether to enable online update])
 ENABLE_ONLINE_UPDATE=
 ENABLE_ONLINE_UPDATE_MAR=
 UPDATE_CHANNEL=
+UPDATE_CERTIFICATE_NAME=
+UPDATE_CERTIFICATE_PATH=
 if test "$enable_online_update" = ""; then
     if test "$_os" = "WINNT" -o "$_os" = "Darwin"; then
         AC_MSG_RESULT([yes])
@@ -11557,6 +11570,8 @@ else
         ENABLE_ONLINE_UPDATE_MAR="TRUE"
         AC_DEFINE(HAVE_FEATURE_UPDATE_MAR)
         UPDATE_CHANNEL="$with_update_channel"
+        UPDATE_CERTIFICATE_NAME="$with_update_certificate_name"
+        UPDATE_CERTIFICATE_PATH="$with_update_certificate_path"
     elif test "$enable_online_update" = "yes"; then
         AC_MSG_RESULT([yes])
         ENABLE_ONLINE_UPDATE="TRUE"
@@ -11567,6 +11582,8 @@ fi
 AC_SUBST(ENABLE_ONLINE_UPDATE)
 AC_SUBST(ENABLE_ONLINE_UPDATE_MAR)
 AC_SUBST(UPDATE_CHANNEL)
+AC_SUBST(UPDATE_CERTIFICATE_NAME)
+AC_SUBST(UPDATE_CERTIFICATE_PATH)
 
 dnl ===================================================================
 dnl Test whether we need bzip2
