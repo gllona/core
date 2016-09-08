@@ -47,11 +47,11 @@ public:
     static void       ImplDeInitScheduler();
 
     /// Process one pending Timer with highhest priority
-    static void       CallbackTaskScheduling( bool ignore );
+    static void       CallbackTaskScheduling();
     /// Are there any pending tasks to process?
     static bool       HasPendingTasks();
     /// Process one pending task ahead of time with highest priority.
-    static bool       ProcessTaskScheduling( bool bIdle );
+    static bool       ProcessTaskScheduling();
     /// Process all events until we are idle
     static void       ProcessEventsToIdle();
 
@@ -96,7 +96,7 @@ protected:
 
     virtual void SetDeletionFlags();
     /// Is this item ready to be dispatched at nTimeNow
-    virtual bool ReadyForSchedule( bool bIdle, sal_uInt64 nTimeNow ) const = 0;
+    virtual bool ReadyForSchedule( sal_uInt64 nTimeNow ) const = 0;
     /**
      * Adjust nMinPeriod downwards if we want to be notified before
      * then, nTimeNow is the current time.
