@@ -20,31 +20,15 @@
 #include <vcl/idle.hxx>
 #include "saltimer.hxx"
 
-void Idle::Invoke()
-{
-    maIdleHdl.Call( this );
-}
-
-Idle& Idle::operator=( const Idle& rIdle )
-{
-    Scheduler::operator=(rIdle);
-    maIdleHdl = rIdle.maIdleHdl;
-    return *this;
-}
-
-Idle::Idle( const sal_Char *pDebugName ) : Scheduler( pDebugName )
+Idle::Idle( const sal_Char *pDebugName )
+    : Timer( pDebugName )
 {
     mePriority = SchedulerPriority::DEFAULT_IDLE;
 }
 
-Idle::Idle( const Idle& rIdle ) : Scheduler(rIdle)
-{
-    maIdleHdl = rIdle.maIdleHdl;
-}
-
 void Idle::Start()
 {
-    Scheduler::Start();
+    Timer::Start();
 
     sal_uInt64 nPeriod = Scheduler::ImmediateTimeoutMs;
     if (Scheduler::GetDeterministicMode())
