@@ -125,7 +125,7 @@ void TimerTest::testIdle()
 {
     bool bTriggered = false;
     IdleBool aTest( bTriggered );
-    while ( Application::Reschedule() );
+    Scheduler::ProcessEventsToIdle();
     CPPUNIT_ASSERT_MESSAGE("idle triggered", bTriggered);
 }
 
@@ -438,7 +438,7 @@ void TimerTest::testInvokedReStart()
 {
     sal_Int32 nCount = 0;
     IdleInvokedReStart aIdle( nCount );
-    while ( Application::Reschedule() );
+    Scheduler::ProcessEventsToIdle();
     CPPUNIT_ASSERT( nCount == 2 );
 }
 
@@ -473,7 +473,7 @@ void TimerTest::testPriority()
         aLowPrioIdle.SetPriority( TaskPriority::LOWEST );
         IdleSerializer aHighPrioIdle( "IdleSerializer HighPrio", 1, nProcessed );
         aHighPrioIdle.SetPriority( TaskPriority::HIGHEST );
-        while ( Application::Reschedule() );
+        Scheduler::ProcessEventsToIdle();
         CPPUNIT_ASSERT_MESSAGE( "Not all idles processed", 2 == nProcessed );
     }
 
@@ -484,7 +484,7 @@ void TimerTest::testPriority()
         aHighPrioIdle.SetPriority( TaskPriority::HIGHEST );
         IdleSerializer aLowPrioIdle( "IdleSerializer LowPrio", 2, nProcessed );
         aLowPrioIdle.SetPriority( TaskPriority::LOWEST );
-        while ( Application::Reschedule() );
+        Scheduler::ProcessEventsToIdle();
         CPPUNIT_ASSERT_MESSAGE( "Not all idles processed", 2 == nProcessed );
     }
 }

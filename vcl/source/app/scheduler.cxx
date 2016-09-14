@@ -116,10 +116,6 @@ void Scheduler::ImplStartTimer(sal_uInt64 nMS, bool bForce, sal_uInt64 nTime)
         pSVData->mpSalTimer->SetCallback(Scheduler::CallbackTaskScheduling);
     }
 
-    if ( nMS > InfiniteTimeoutMs )
-        nMS = InfiniteTimeoutMs;
-    if ( nMS < ImmediateTimeoutMs )
-        nMS = ImmediateTimeoutMs;
     assert(SAL_MAX_UINT64 - nMS >= nTime);
 
     sal_uInt64 nProposedTimeout = nTime + nMS;
