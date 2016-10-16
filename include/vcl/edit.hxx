@@ -176,6 +176,7 @@ public:
     virtual void        Command( const CommandEvent& rCEvt ) override;
     virtual void        StateChanged( StateChangedType nType ) override;
     virtual void        DataChanged( const DataChangedEvent& rDCEvt ) override;
+    virtual bool        EventNotify( NotifyEvent& rNEvt ) override;
 
     virtual void        Modify();
     virtual void        UpdateData();

@@ -203,6 +203,27 @@ bool Window::EventNotify( NotifyEvent& rNEvt )
     return bRet;
 }
 
+void Window::InvalidateOutermostBorder( NotifyEvent& rNEvt, ControlType eType )
+{
+    const MouseEvent* pMouseEvt = nullptr;
+    // trigger redraw if mouse over state has changed
+    if ((rNEvt.GetType() == MouseNotifyEvent::MOUSEMOVE) && (pMouseEvt = rNEvt.GetMouseEvent())
+        && !pMouseEvt->GetButtons() && !pMouseEvt->IsSynthetic() && !pMouseEvt->IsModifierChanged()
+        && IsNativeWidgetEnabled() && IsNativeControlSupported(eType, ControlPart::Entire)
+        && (pMouseEvt->IsLeaveWindow() || pMouseEvt->IsEnterWindow()) && (this == rNEvt.GetWindow())
+        && ImplGetSVData()->maNWFData.mbNoFocusRects && !GetWindow( GetWindowType::CompoundParent ))
+    {
+        // allow control to show focused state
+        vcl::Window *pInvalWin = this, *pBorder = this;
+        while( ( pBorder = pInvalWin->GetWindow( GetWindowType::Border ) ) != pInvalWin && pBorder &&
+                pInvalWin->ImplGetFrame() == pBorder->ImplGetFrame() )
+        {
+            pInvalWin = pBorder;
+        }
+        pInvalWin->Invalidate( InvalidateFlags::Children | InvalidateFlags::Update );
+    }
+}
+
 void Window::CallEventListeners( VclEventId nEvent, void* pData )
 {
     VclWindowEvent aEvent( this, nEvent, pData );

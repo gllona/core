@@ -805,6 +805,7 @@ public:
     virtual void                        DataChanged( const DataChangedEvent& rDCEvt );
     virtual bool                        PreNotify( NotifyEvent& rNEvt );
     virtual bool                        EventNotify( NotifyEvent& rNEvt );
+    void                                InvalidateOutermostBorder( NotifyEvent& rNEvt, ControlType eType );
 
     // These methods call the relevant virtual method when not in/post dispose
     void                                CompatGetFocus();

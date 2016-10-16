@@ -1745,6 +1745,12 @@ void Edit::Resize()
     }
 }
 
+bool Edit::EventNotify( NotifyEvent& rNEvt )
+{
+    InvalidateOutermostBorder( rNEvt, ControlType::Editbox );
+    return Control::EventNotify( rNEvt );
+}
+
 void Edit::Draw( OutputDevice* pDev, const Point& rPos, const Size& rSize, DrawFlags nFlags )
 {
     ApplySettings(*pDev);

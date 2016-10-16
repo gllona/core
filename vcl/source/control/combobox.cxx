@@ -697,6 +697,13 @@ void ComboBox::DataChanged( const DataChangedEvent& rDCEvt )
 bool ComboBox::EventNotify( NotifyEvent& rNEvt )
 {
     bool bDone = false;
+
+    // trigger redraw if mouse over state has changed
+    if (IsNativeControlSupported(ControlType::Editbox, ControlPart::Entire))
+    {
+        InvalidateOutermostBorder( rNEvt, ControlType::Combobox );
+    }
+
     if ((rNEvt.GetType() == MouseNotifyEvent::KEYINPUT)
         && (rNEvt.GetWindow() == m_pImpl->m_pSubEdit)
         && !IsReadOnly())
