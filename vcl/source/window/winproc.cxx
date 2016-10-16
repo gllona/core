@@ -256,6 +256,16 @@ static void ContextMenuEventLink( void* pCEvent, void* )
     delete pEv;
 }
 
+static inline vcl::Window* GetNonCommonCompoundWin( vcl::Window* pNew, vcl::Window* pOld )
+{
+    assert( pNew );
+    vcl::Window *pCompoundWin = pNew->GetWindow( GetWindowType::CompoundParent );
+    if ( pCompoundWin && ( pCompoundWin->IsDisposed() || (pOld &&
+            pCompoundWin == pOld->GetWindow( GetWindowType::CompoundParent )) ) )
+        pCompoundWin = nullptr;
+    return pCompoundWin;
+}
+
 bool ImplHandleMouseEvent( const VclPtr<vcl::Window>& xWindow, MouseNotifyEvent nSVEvent, bool bMouseLeave,
                            long nX, long nY, sal_uInt64 nMsgTime,
                            sal_uInt16 nCode, MouseEventModifiers nMode )
@@ -354,6 +364,8 @@ bool ImplHandleMouseEvent( const VclPtr<vcl::Window>& xWindow, MouseNotifyEvent 
     if ( !pChild && !bMouseLeave )
         return false;
 
+    VclPtr<vcl::Window> pMouseMoveWin = pWinFrameData->mpMouseMoveWin;
+
     // execute a few tests and catch the message or implement the status
     if ( pChild )
     {
@@ -386,6 +398,15 @@ bool ImplHandleMouseEvent( const VclPtr<vcl::Window>& xWindow, MouseNotifyEvent 
             {
                 pWinFrameData->mpMouseMoveWin = pChild;
                 pChild->ImplNotifyKeyMouseCommandEventListeners( aNEvt );
+                if ( nMode & MouseEventModifiers::ENTERWINDOW )
+                {
+                    vcl::Window* pCompoundWin = GetNonCommonCompoundWin( pChild, pMouseMoveWin );
+                    if ( pCompoundWin )
+                    {
+                        aNEvt = NotifyEvent( nSVEvent, pCompoundWin, &aMEvt );
+                        pCompoundWin->ImplNotifyKeyMouseCommandEventListeners( aNEvt );
+                    }
+                }
             }
 
             if ( nSVEvent == MouseNotifyEvent::MOUSEBUTTONDOWN )
@@ -416,7 +437,7 @@ bool ImplHandleMouseEvent( const VclPtr<vcl::Window>& xWindow, MouseNotifyEvent 
         {
             Point aChildMousePos = pChild->ImplFrameToOutput( aMousePos );
             if ( !bMouseLeave &&
-                 (pChild == pWinFrameData->mpMouseMoveWin) &&
+                 (pChild == pMouseMoveWin) &&
                  (aChildMousePos.X() == pWinFrameData->mnLastMouseWinX) &&
                  (aChildMousePos.Y() == pWinFrameData->mnLastMouseWinY) &&
                  (nOldCode == pWinFrameData->mnMouseCode) )
@@ -510,7 +531,6 @@ bool ImplHandleMouseEvent( const VclPtr<vcl::Window>& xWindow, MouseNotifyEvent 
         }
 
         // test for mouseleave and mouseenter
-        VclPtr<vcl::Window> pMouseMoveWin = pWinFrameData->mpMouseMoveWin;
         if ( pChild != pMouseMoveWin )
         {
             if ( pMouseMoveWin )
@@ -521,12 +541,30 @@ bool ImplHandleMouseEvent( const VclPtr<vcl::Window>& xWindow, MouseNotifyEvent 
                 pWinFrameData->mbInMouseMove = true;
                 pMouseMoveWin->ImplGetWinData()->mbMouseOver = false;
 
+                // Don't leave notify a compound window, if leaving to a child control
+                bool bDoNotify = (!pMouseMoveWin->IsCompoundControl() || !pChild || pChild->IsDisposed()
+                    || pMouseMoveWin != pChild->GetWindow( GetWindowType::CompoundParent ));
                 // A MouseLeave can destroy this window
-                if ( !ImplCallPreNotify( aNLeaveEvt ) )
+                if ( bDoNotify && !ImplCallPreNotify( aNLeaveEvt ) )
                 {
                     pMouseMoveWin->MouseMove( aMLeaveEvt );
-                    if( !pMouseMoveWin->IsDisposed() )
-                        aNLeaveEvt.GetWindow()->ImplNotifyKeyMouseCommandEventListeners( aNLeaveEvt );
+                    if ( !pMouseMoveWin->IsDisposed() )
+                        pMouseMoveWin->ImplNotifyKeyMouseCommandEventListeners( aNLeaveEvt );
+                }
+                // If we left the compound control not from the compound window, notify the compound window
+                if ( bDoNotify && !pMouseMoveWin->IsCompoundControl() )
+                {
+                    VclPtr<vcl::Window> pCompoundWin = GetNonCommonCompoundWin( pMouseMoveWin, pChild );
+                    if ( pCompoundWin )
+                    {
+                        aNLeaveEvt = NotifyEvent( MouseNotifyEvent::MOUSEMOVE, pCompoundWin, &aMLeaveEvt );
+                        if ( !ImplCallPreNotify( aNLeaveEvt ) )
+                        {
+                            pCompoundWin->MouseMove( aMLeaveEvt );
+                            if ( !pCompoundWin->IsDisposed() )
+                                pCompoundWin->ImplNotifyKeyMouseCommandEventListeners( aNLeaveEvt );
+                        }
+                    }
                 }
 
                 pWinFrameData->mpMouseMoveWin = nullptr;
@@ -645,6 +683,15 @@ bool ImplHandleMouseEvent( const VclPtr<vcl::Window>& xWindow, MouseNotifyEvent 
             return true;
     }
 
+    if ( nMode & MouseEventModifiers::ENTERWINDOW )
+    {
+        vcl::Window *pCompoundWin = GetNonCommonCompoundWin( pChild, pMouseMoveWin );
+        if ( pCompoundWin )
+        {
+            NotifyEvent aCNEvt( nSVEvent, pCompoundWin, &aMEvt );
+            ImplCallPreNotify( aCNEvt );
+        }
+    }
     if ( ImplCallPreNotify( aNEvt ) || pChild->IsDisposed() )
         bRet = true;
     else
@@ -681,6 +728,12 @@ bool ImplHandleMouseEvent( const VclPtr<vcl::Window>& xWindow, MouseNotifyEvent 
                     // the HelpRequest handler should not be called anymore
                     vcl::Window* pOldHelpTextWin = pSVData->maHelpData.mpHelpWin;
                     pChild->ImplGetWindowImpl()->mbMouseMove = false;
+                    if ( nMode & MouseEventModifiers::ENTERWINDOW )
+                    {
+                        vcl::Window *pCompoundWin = GetNonCommonCompoundWin( pChild, pMouseMoveWin );
+                        if ( pCompoundWin )
+                            pCompoundWin->MouseMove( aMEvt );
+                    }
                     pChild->MouseMove( aMEvt );
                     if ( pOldHelpTextWin != pSVData->maHelpData.mpHelpWin )
                         bCallHelpRequest = false;
@@ -714,6 +767,15 @@ bool ImplHandleMouseEvent( const VclPtr<vcl::Window>& xWindow, MouseNotifyEvent 
 
         assert(aNEvt.GetWindow() == pChild);
 
+        if ( nMode & MouseEventModifiers::ENTERWINDOW )
+        {
+            vcl::Window *pCompoundWin = GetNonCommonCompoundWin( pChild, pMouseMoveWin );
+            if ( pCompoundWin )
+            {
+                NotifyEvent aCNEvt( nSVEvent, pCompoundWin, &aMEvt );
+                pCompoundWin->ImplNotifyKeyMouseCommandEventListeners( aCNEvt );
+            }
+        }
         if (!pChild->IsDisposed())
             pChild->ImplNotifyKeyMouseCommandEventListeners( aNEvt );
     }

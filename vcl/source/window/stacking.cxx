@@ -1049,6 +1049,18 @@ vcl::Window* Window::GetWindow( GetWindowType nType ) const
         case GetWindowType::Parent:
             return mpWindowImpl->mpRealParent;
 
+        case GetWindowType::CompoundParent:
+        {
+            vcl::Window *pParent = GetParent();
+            while( pParent )
+            {
+                if( pParent->IsCompoundControl() )
+                    break;
+                pParent = pParent->GetParent();
+            }
+            return pParent;
+        }
+
         case GetWindowType::FirstChild:
             return mpWindowImpl->mpFirstChild;
 
