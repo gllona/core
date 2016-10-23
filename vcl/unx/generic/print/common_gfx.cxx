@@ -30,6 +30,7 @@
 #include <vcl/strhelper.hxx>
 #include <vcl/printerinfomanager.hxx>
 
+#include "tools/stream.hxx"
 #include "tools/debug.hxx"
 #include "tools/color.hxx"
 #include "tools/poly.hxx"

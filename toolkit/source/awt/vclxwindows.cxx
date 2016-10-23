@@ -43,6 +43,7 @@
 #include <vcl/combobox.hxx>
 #include <vcl/field.hxx>
 #include <vcl/fixedhyper.hxx>
+#include <vcl/graph.hxx>
 #include <vcl/longcurr.hxx>
 #include <vcl/imgctrl.hxx>
 #include <vcl/dialog.hxx>

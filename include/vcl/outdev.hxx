@@ -25,6 +25,7 @@
 #include <tools/rc.hxx>
 #include <tools/color.hxx>
 #include <tools/poly.hxx>
+#include <tools/ref.hxx>
 #include <o3tl/typed_flags_set.hxx>
 
 #include <vcl/cairo.hxx>

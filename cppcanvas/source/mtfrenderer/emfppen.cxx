@@ -35,6 +35,7 @@
 #include <basegfx/polygon/b2dpolypolygon.hxx>
 #include <basegfx/polygon/b2dpolypolygontools.hxx>
 #include <vcl/canvastools.hxx>
+#include <tools/stream.hxx>
 #include <implrenderer.hxx>
 #include <emfppen.hxx>
 #include <emfpcustomlinecap.hxx>

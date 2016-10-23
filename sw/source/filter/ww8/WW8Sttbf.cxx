@@ -25,7 +25,6 @@
 #include <osl/endian.h>
 #include <rtl/ustrbuf.hxx>
 #include <o3tl/make_shared.hxx>
-#include <tools/stream.hxx>
 
 namespace ww8
 {

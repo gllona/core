@@ -31,6 +31,7 @@
 #include <vcl/FilterConfigItem.hxx>
 #include <vcl/graphicfilter.hxx>
 #include <vcl/cvtgrf.hxx>
+#include <vcl/animate.hxx>
 #include <sax/tools/converter.hxx>
 #include <memory>
 

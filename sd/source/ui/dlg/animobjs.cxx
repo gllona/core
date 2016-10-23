@@ -28,6 +28,7 @@
 #include <sfx2/dispatch.hxx>
 #include <sfx2/progress.hxx>
 #include <vcl/msgbox.hxx>
+#include <vcl/animate.hxx>
 
 #include "anminfo.hxx"
 #include "animobjs.hxx"

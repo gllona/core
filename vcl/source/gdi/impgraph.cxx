@@ -29,6 +29,7 @@
 #include <ucbhelper/content.hxx>
 #include <unotools/ucbstreamhelper.hxx>
 #include <unotools/tempfile.hxx>
+#include <vcl/animate.hxx>
 #include <vcl/outdev.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/gfxlink.hxx>

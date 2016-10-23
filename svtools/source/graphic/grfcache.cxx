@@ -26,6 +26,7 @@
 #include <tools/debug.hxx>
 #include <vcl/metaact.hxx>
 #include <vcl/outdev.hxx>
+#include <vcl/animate.hxx>
 #include <tools/poly.hxx>
 #include <rtl/strbuf.hxx>
 #include "grfcache.hxx"

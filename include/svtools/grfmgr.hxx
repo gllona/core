@@ -76,6 +76,7 @@ class SvStream;
 class BitmapWriteAccess;
 class GraphicCache;
 class VirtualDevice;
+class Timer;
 struct GrfSimpleCacheObj;
 struct ImplTileInfo;
 

@@ -30,6 +30,7 @@
 #include <rtl/uuid.h>
 #include <osl/mutex.hxx>
 
+#include <vcl/graph.hxx>
 #include <vcl/menu.hxx>
 #include <vcl/keycod.hxx>
 #include <vcl/image.hxx>

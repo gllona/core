@@ -22,6 +22,8 @@
 #include <memory>
 #include <o3tl/make_unique.hxx>
 
+#include <vcl/animate.hxx>
+
 #define NO_PENDING( rStm ) ( ( rStm ).GetError() != ERRCODE_IO_PENDING )
 
 enum GIFAction

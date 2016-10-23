@@ -25,6 +25,7 @@
 
 #include <vcl/salbtype.hxx>
 #include <vcl/pngwrite.hxx>
+#include <tools/stream.hxx>
 
 #include "opengl/framebuffer.hxx"
 #include "opengl/texture.hxx"

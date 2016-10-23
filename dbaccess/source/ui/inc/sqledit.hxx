@@ -25,6 +25,7 @@
 #include <svtools/editsyntaxhighlighter.hxx>
 #include <svl/lstner.hxx>
 #include <svtools/colorcfg.hxx>
+#include <vcl/timer.hxx>
 
 namespace com { namespace sun { namespace star { namespace beans {
     class XMultiPropertySet;

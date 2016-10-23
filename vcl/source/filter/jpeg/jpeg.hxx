@@ -22,10 +22,8 @@
 
 #include <vcl/graph.hxx>
 #include <vcl/graphicfilter.hxx>
-#include <vcl/fltcall.hxx>
-#include <com/sun/star/uno/Sequence.h>
+#include <tools/stream.hxx>
 #include <com/sun/star/beans/PropertyValue.hpp>
-#include <com/sun/star/task/XStatusIndicator.hpp>
 
 VCL_DLLPUBLIC bool ImportJPEG( SvStream& rInputStream, Graphic& rGraphic, void* pCallerData, GraphicFilterImportFlags nImportFlags );
 

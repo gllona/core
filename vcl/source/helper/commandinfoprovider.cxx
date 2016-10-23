@@ -23,6 +23,7 @@
 #include <comphelper/processfactory.hxx>
 #include <cppuhelper/compbase.hxx>
 #include <cppuhelper/basemutex.hxx>
+#include <vcl/graph.hxx>
 
 #include <com/sun/star/frame/ModuleManager.hpp>
 #include <com/sun/star/frame/theUICommandDescription.hpp>

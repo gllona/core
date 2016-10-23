@@ -32,6 +32,9 @@
 #include <vcl/unohelp.hxx>
 #include <vcl/controllayout.hxx>
 
+#include <tools/lineend.hxx>
+#include <osl/file.h>
+
 #include "outdata.hxx"
 #include "outdev.h"
 #include "salgdi.hxx"

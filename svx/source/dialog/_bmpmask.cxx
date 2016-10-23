@@ -20,6 +20,7 @@
 #include <vcl/wrkwin.hxx>
 #include <vcl/metaact.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/animate.hxx>
 #include <svtools/valueset.hxx>
 #include <svl/eitem.hxx>
 #include <sfx2/dispatch.hxx>

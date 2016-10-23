@@ -26,7 +26,6 @@
 #include <rtl/ustring.hxx>
 #include <vcl/bitmap.hxx>
 #include <vcl/bitmapex.hxx>
-#include <vcl/animate.hxx>
 #include <vcl/gdimtf.hxx>
 #include <vcl/gfxlink.hxx>
 #include <com/sun/star/uno/Reference.hxx>
@@ -45,6 +44,7 @@ enum class GraphicType
 namespace com { namespace sun { namespace star { namespace graphic { class XGraphic;} } } }
 namespace vcl { class Font; }
 
+class Animation;
 class GfxLink;
 class ImpGraphic;
 class OutputDevice;

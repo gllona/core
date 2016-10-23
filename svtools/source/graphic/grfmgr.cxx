@@ -33,6 +33,7 @@
 #include <vcl/cvtgrf.hxx>
 #include <vcl/metaact.hxx>
 #include <vcl/virdev.hxx>
+#include <vcl/animate.hxx>
 #include <svtools/grfmgr.hxx>
 
 #include <com/sun/star/container/XNameContainer.hpp>

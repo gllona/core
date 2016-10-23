@@ -34,6 +34,7 @@
 
 #include <osl/endian.h>
 #include <tools/solar.h>
+#include <tools/stream.hxx>
 #include <rtl/ustring.hxx>
 #include "sortedarray.hxx"
 
@@ -42,7 +43,6 @@
 
 #include <unomid.h>
 
-class SvStream;
 
 //Commonly used string literals for stream and storage names in word docs
 namespace SL

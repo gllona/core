@@ -45,6 +45,7 @@
 #include <vcl/pngwrite.hxx>
 #include <rtl/instance.hxx>
 #include <svtools/miscopt.hxx>
+#include <vcl/graph.hxx>
 #include <memory>
 
 using ::com::sun::star::uno::Sequence;

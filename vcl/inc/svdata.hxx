@@ -83,6 +83,7 @@ class DockingManager;
 class VclEventListeners2;
 class SalData;
 class OpenGLContext;
+class SvFileStream;
 
 namespace vcl
 {

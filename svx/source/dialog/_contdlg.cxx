@@ -22,6 +22,7 @@
 #include <vcl/wrkwin.hxx>
 #include <tools/helpers.hxx>
 #include <vcl/msgbox.hxx>
+#include <vcl/animate.hxx>
 #include <svl/eitem.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/viewfrm.hxx>
