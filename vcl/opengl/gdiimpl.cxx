@@ -20,6 +20,7 @@
 #include "openglgdiimpl.hxx"
 
 #include <vcl/gradient.hxx>
+#include <vcl/idle.hxx>
 #include <salframe.hxx>
 #include "salvd.hxx"
 #include <basegfx/matrix/b2dhommatrixtools.hxx>

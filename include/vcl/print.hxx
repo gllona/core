@@ -33,6 +33,7 @@
 
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/view/PrintableState.hpp>
+#include <com/sun/star/uno/Sequence.hxx>
 
 #include <memory>
 #include <set>

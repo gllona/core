@@ -23,7 +23,6 @@
 #include <tools/gen.hxx>
 #include <tools/urlobj.hxx>
 #include <vcl/dllapi.h>
-#include <vcl/field.hxx>
 #include <vcl/graph.hxx>
 #include <o3tl/typed_flags_set.hxx>
 

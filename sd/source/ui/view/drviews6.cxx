@@ -19,6 +19,7 @@
 
 #include "DrawViewShell.hxx"
 #include <vcl/metaact.hxx>
+#include <vcl/animate.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/dispatch.hxx>
 #include <vcl/msgbox.hxx>

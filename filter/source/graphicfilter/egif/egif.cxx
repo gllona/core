@@ -24,6 +24,7 @@
 #include <vcl/window.hxx>
 #include <svl/solar.hrc>
 #include <vcl/fltcall.hxx>
+#include <vcl/animate.hxx>
 #include <vcl/FilterConfigItem.hxx>
 #include "giflzwc.hxx"
 #include <memory>

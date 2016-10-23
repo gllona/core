@@ -24,6 +24,7 @@
 #include <vcl/bitmapaccess.hxx>
 #include <svl/solar.hrc>
 #include <vcl/fltcall.hxx>
+#include <vcl/animate.hxx>
 #include <vcl/FilterConfigItem.hxx>
 
 #define NewSubfileType              254

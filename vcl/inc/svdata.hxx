@@ -24,8 +24,8 @@
 
 #include <tools/fldunit.hxx>
 #include <unotools/options.hxx>
-#include <vcl/idle.hxx>
 #include <vcl/svapp.hxx>
+#include "saltimer.hxx"
 
 #include <com/sun/star/lang/XComponent.hpp>
 
@@ -88,6 +88,7 @@ class DockingManager;
 class VclEventListeners2;
 class SalData;
 class OpenGLContext;
+class SvFileStream;
 
 namespace vcl { class DisplayConnectionDispatch; class SettingsConfigItem; class DeleteOnDeinitBase; }
 

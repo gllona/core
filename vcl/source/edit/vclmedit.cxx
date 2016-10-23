@@ -18,6 +18,7 @@
  */
 
 #include <tools/rc.h>
+#include <vcl/timer.hxx>
 #include <vcl/builder.hxx>
 #include <vcl/decoview.hxx>
 #include <vcl/svapp.hxx>
@@ -1124,6 +1125,12 @@ void VclMultiLineEdit::EnableUpdateData( sal_uLong nTimeout )
         }
         pUpdateDataTimer->SetTimeout( nTimeout );
     }
+}
+
+void VclMultiLineEdit::DisableUpdateData()
+{
+    delete pUpdateDataTimer;
+    pUpdateDataTimer = nullptr;
 }
 
 void VclMultiLineEdit::SetReadOnly( bool bReadOnly )

@@ -20,6 +20,8 @@
 #include <vcl/graphicfilter.hxx>
 #include <svx/xoutbmp.hxx>
 
+#include <config_features.h>
+
 class XOutdevTest : public CppUnit::TestFixture
 {
 public:

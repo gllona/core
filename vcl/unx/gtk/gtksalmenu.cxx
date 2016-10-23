@@ -25,6 +25,8 @@
 #include <window.h>
 #include <svids.hrc>
 
+#include <tools/stream.hxx>
+
 static bool bUnityMode = false;
 
 /*

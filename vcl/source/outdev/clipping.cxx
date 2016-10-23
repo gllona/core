@@ -27,7 +27,6 @@
 #include <salframe.hxx>
 #include <salvd.hxx>
 #include <salprn.hxx>
-#include <window.h>
 
 #include <numeric>
 

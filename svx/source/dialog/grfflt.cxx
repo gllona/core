@@ -18,6 +18,7 @@
  */
 
 #include <vcl/msgbox.hxx>
+#include <vcl/animate.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/viewsh.hxx>
 #include <sfx2/objsh.hxx>

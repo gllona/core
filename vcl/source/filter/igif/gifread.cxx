@@ -21,6 +21,8 @@
 #include "gifread.hxx"
 #include <memory>
 
+#include <vcl/animate.hxx>
+
 #define NO_PENDING( rStm ) ( ( rStm ).GetError() != ERRCODE_IO_PENDING )
 
 enum GIFAction

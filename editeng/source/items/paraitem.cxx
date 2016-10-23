@@ -25,6 +25,7 @@
 #include <unotools/syslocale.hxx>
 #include <comphelper/types.hxx>
 #include <tools/mapunit.hxx>
+#include <tools/stream.hxx>
 #include <svl/itempool.hxx>
 #include <svl/memberid.hrc>
 #include <editeng/editrids.hrc>

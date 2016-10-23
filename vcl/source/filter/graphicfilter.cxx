@@ -40,6 +40,7 @@
 #include <vcl/FilterConfigItem.hxx>
 #include <vcl/wmf.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/fltcall.hxx>
 #include "igif/gifread.hxx"
 #include "ipdf/pdfread.hxx"
 #include "jpeg/jpeg.hxx"

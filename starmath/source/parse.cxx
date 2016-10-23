@@ -25,6 +25,8 @@
 #include <sal/macros.h>
 #include <o3tl/make_unique.hxx>
 #include <vcl/settings.hxx>
+#include <tools/lineend.hxx>
+
 #include "parse.hxx"
 #include "starmath.hrc"
 #include "smdll.hxx"

@@ -22,6 +22,7 @@
 #include <osl/thread.h>
 #include <osl/module.h>
 #include <vcl/bitmap.hxx>
+#include <tools/stream.hxx>
 #include <sane/sane.h>
 #include <scanner.hxx>
 

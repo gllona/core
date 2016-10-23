@@ -32,6 +32,7 @@
 #include <vector>
 
 #include <tools/solar.h>
+#include <tools/stream.hxx>
 #include <rtl/ustring.hxx>
 #include "sortedarray.hxx"
 
@@ -39,8 +40,6 @@
 #include <types.hxx>
 
 #include <unomid.h>
-
-class SvStream;
 
 //--Line below which the code has meaningful comments
 

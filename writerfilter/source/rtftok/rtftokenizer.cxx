@@ -14,6 +14,7 @@
 #include <rtfskipdestination.hxx>
 #include <rtl/character.hxx>
 #include <com/sun/star/io/BufferSizeExceededException.hpp>
+#include <tools/stream.hxx>
 
 using namespace com::sun::star;
 

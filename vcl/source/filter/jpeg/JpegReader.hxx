@@ -21,9 +21,7 @@
 #define INCLUDED_VCL_SOURCE_FILTER_JPEG_JPEGREADER_HXX
 
 #include <vcl/graph.hxx>
-#include <vcl/fltcall.hxx>
-#include <com/sun/star/beans/PropertyValue.hpp>
-#include <com/sun/star/task/XStatusIndicator.hpp>
+#include <tools/stream.hxx>
 
 enum ReadState
 {
