@@ -1,0 +1,74 @@
+= Introduction =
+
+The VCL scheduler handles LOs primary event queue.
+It is simple by design, currently just a single-linked list, and has the following behaviour:
+
+B.1. Tasks are scheduled just priority based
+B.2. Implicitly cooperative AKA non-preemptive
+B.3. It's not "fair" in any way (a consequence of B.2)
+B.4. Tasks are handled round-robin (per priority)
+B.5. Higher priorities have lower values
+B.6. A small set of priorities instead of an flexible value AKA int
+
+There are some consequences due to this design.
+
+C.1. Higher priorority tasks starve lower priority tasks
+     As long as a higher task is available, lower tasks are never run!
+     See Anti-pattern.
+
+C.2. Tasks should be split into sensible blocks
+     If this can't really be done, process pending tasks by calling Application::Reschedule(). Or use a thread.
+
+C.3. This is not an OS scheduler
+     There is no real way to "fix" B.2. and B.3. If you need to do an preemptive task, use a thread!
+     OS schedulers need to be "fair". There are complex approaches, like RCU, priority inversion, priority inheritance, etc. to fix C.1., but most aren't useable in userspace (there even is a userspace RCU library, FWIW).
+
+
+= Anti-pattern: Dependencies via (fine grained) priorities =
+
+"Idle 1" should run before "Idle 2", therefore give "Idle 1" a higher priority then "Idle 2".
+This just works correct for low frequency idles, but otherwise always breaks!
+
+If you have some longer work - even if it can be split by into schedulable, smaller blocks - you normally don't want to schedule it with a non-default priority, as it starves all lower priority tasks. Even if a block was processed in "Idle 1", it is scheduled with the same (higher) priority again. Changing the "Idle" to a "Timer" also won't work, as this breaks the dependency.
+
+What is needed is task based dependency handling, so if "Task 1" is done, it has to start "Task 2" and if "Task 1" is started again, it has to stop "Task 2". This currently has to be done by the implementor, but this feature can be added to the scheduler reasonably.
+
+
+= TODOs and ideas =
+
+== Task dependencies AKA children ==
+
+Every task can have a list of children / a child.
+
+ * When a task is stopped, the children are started.
+ * When a task is started, the children are stopped.
+
+This should be easy to implement.
+
+== Per priority time-sorted queues ==
+
+This would result in O(1) scheduler. It was used in the Linux kernel for some time (search Ingo Molinars O(1) scheduler). This can be a scheduling optimization, which would prevent walking longer event list. But probably the management overhead would be too large, as we have many one-shot events.
+
+To find the next task the scheduler just walks the (constant) list of priority queues and schedules the first ready event of any queue.
+
+The downside of this approach: Insert / Start / Reschedule(for "auto" tasks) now need O(log(n)) to find the position in the queue.
+
+== Always process all (higher priority) pending events ==
+
+Currently Application::Reschedule() processes a single event or "all" events, with "all" defined as "100" events in most backends. This already is "ignored" by the KDE4 backend, as Qt defines its ProcessPendingEvents() as always processing all pending events (there are ways to skip event classes, but no easy but one hard way to process just a single event).
+
+== Convert Scheduler from single-linked list to queue ==
+
+Keep a pointer to the last list element to speed up adding new events.
+This is a prerequisite to implement I.2 of the "Thread-safe scheduler".
+
+== Thread-safe scheduler ==
+
+We already have crashes, where LO adds new events to the scheduler without holding the SolarMutex.
+Instead of using the global lock, use extra locking to allow threads to add events to the main queue.
+
+I.1. Use an extra list for new events. The new event list is appended to the scheduler list and accounted at two points: 1. the start of a normal scheduler run and 2. after invoking an event.
+I.2. The scheduler just needs the list lock, if it handles the last item, as new events are always appended. No special list handling is needed in this case. As a consequence the list has to become a queue with a last item, as unlocked walk outside the scheduler will not be thread-safe.
+
+Stopping and invoking would also need locking, but the main task of walking the list is safe without the lock.
+
