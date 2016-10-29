@@ -65,11 +65,6 @@ class Image;
 class PopupMenu;
 class Application;
 class OutputDevice;
-namespace vcl
-{
-    class CommandInfoProvider;
-    class Window;
-}
 class SystemWindow;
 class WorkWindow;
 class Dialog;
@@ -89,7 +84,14 @@ class VclEventListeners2;
 class SalData;
 class OpenGLContext;
 
-namespace vcl { class DisplayConnectionDispatch; class SettingsConfigItem; class DeleteOnDeinitBase; }
+namespace vcl
+{
+    class DisplayConnectionDispatch;
+    class SettingsConfigItem;
+    class DeleteOnDeinitBase;
+    class CommandInfoProvider;
+    class Window;
+}
 
 class LocaleConfigurationListener : public utl::ConfigurationListener
 {
@@ -315,6 +317,7 @@ struct ImplSVData
     VclPtr<WorkWindow>      mpDefaultWin;                   // Default-Window
     bool                    mbDeInit = false;               // Is VCL deinitializing
     ImplSchedulerData*      mpFirstSchedulerData = nullptr; // list of all running tasks
+    ImplSchedulerData*      mpLastSchedulerData = nullptr;  // last item of the mpFirstSchedulerData list
     SalTimer*               mpSalTimer = nullptr;           // interface to sal event loop/timers
     SalI18NImeStatus*       mpImeStatus = nullptr;          // interface to ime status window
     SalSystem*              mpSalSystem = nullptr;          // SalSystem interface

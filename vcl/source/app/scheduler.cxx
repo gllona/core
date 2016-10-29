@@ -63,33 +63,30 @@ inline std::basic_ostream<charT, traits> & operator <<(
 void Scheduler::ImplDeInitScheduler()
 {
     ImplSVData*     pSVData = ImplGetSVData();
-    ImplSchedulerData*  pSchedulerData = pSVData->mpFirstSchedulerData;
     if (pSVData->mpSalTimer)
     {
         pSVData->mpSalTimer->Stop();
     }
 
-    if ( pSchedulerData )
+    ImplSchedulerData* pSchedulerData = pSVData->mpFirstSchedulerData;
+    while ( pSchedulerData )
     {
-        do
+        if ( pSchedulerData->mpTask )
         {
-            ImplSchedulerData* pTempSchedulerData = pSchedulerData;
-            if ( pSchedulerData->mpTask )
-            {
-                pSchedulerData->mpTask->mbActive = false;
-                pSchedulerData->mpTask->mpSchedulerData = nullptr;
-            }
-            pSchedulerData = pSchedulerData->mpNext;
-            delete pTempSchedulerData;
+            pSchedulerData->mpTask->mbActive = false;
+            pSchedulerData->mpTask->mpSchedulerData = nullptr;
         }
-        while ( pSchedulerData );
-
-        pSVData->mpFirstSchedulerData = nullptr;
-        pSVData->mnTimerPeriod = 0;
+        ImplSchedulerData* pTempSchedulerData = pSchedulerData;
+        pSchedulerData = pSchedulerData->mpNext;
+        delete pTempSchedulerData;
     }
 
     delete pSVData->mpSalTimer;
     pSVData->mpSalTimer = nullptr;
+
+    pSVData->mpFirstSchedulerData = nullptr;
+    pSVData->mpLastSchedulerData  = nullptr;
+    pSVData->mnTimerPeriod        = 0;
 }
 
 /**
@@ -214,6 +211,8 @@ bool Scheduler::ProcessTaskScheduling( bool bIdle )
                 pPrevSchedulerData->mpNext = pSchedulerData->mpNext;
             else
                 pSVData->mpFirstSchedulerData = pSchedulerData->mpNext;
+            if ( !pSchedulerData->mpNext )
+                pSVData->mpLastSchedulerData = pPrevSchedulerData;
             if ( pSchedulerData->mpTask )
                 pSchedulerData->mpTask->mpSchedulerData = nullptr;
             ImplSchedulerData *pDeleteItem = pSchedulerData;
@@ -319,20 +318,19 @@ void Task::Start()
         mpSchedulerData                = new ImplSchedulerData;
         mpSchedulerData->mpTask        = this;
         mpSchedulerData->mbInScheduler = false;
+        mpSchedulerData->mpNext        = nullptr;
 
         // insert last due to SFX!
-        ImplSchedulerData* pPrev = nullptr;
-        ImplSchedulerData* pData = pSVData->mpFirstSchedulerData;
-        while ( pData )
+        if ( !pSVData->mpLastSchedulerData )
         {
-            pPrev = pData;
-            pData = pData->mpNext;
-        }
-        mpSchedulerData->mpNext = nullptr;
-        if ( pPrev )
-            pPrev->mpNext = mpSchedulerData;
-        else
             pSVData->mpFirstSchedulerData = mpSchedulerData;
+            pSVData->mpLastSchedulerData = mpSchedulerData;
+        }
+        else
+        {
+            pSVData->mpLastSchedulerData->mpNext = mpSchedulerData;
+            pSVData->mpLastSchedulerData = mpSchedulerData;
+        }
         SAL_INFO( "vcl.schedule", tools::Time::GetSystemTicks()
                   << " " << mpSchedulerData << "  added      " << *this );
     }
