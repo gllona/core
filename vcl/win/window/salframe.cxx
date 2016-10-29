@@ -3701,47 +3701,82 @@ long ImplHandleSalObjSysCharMsg( HWND hWnd, WPARAM wParam, LPARAM lParam )
     return nRet;
 }
 
-enum class DeferredPaint
+enum class DeferPolicy
+{
+    Blocked,
+    Allowed
+};
+
+// Remember to release the solar mutex on success!
+static inline WinSalFrame* ProcessOrDeferMessage( HWND hWnd, INT nMsg, WPARAM pWParam = 0,
+                                                  DeferPolicy eCanDefer = DeferPolicy::Allowed )
+{
+    bool bFailedCondition = FALSE, bGotMutex = FALSE;
+    WinSalFrame* pFrame = nullptr;
+
+    if ( DeferPolicy::Blocked == eCanDefer )
+        assert( (DeferPolicy::Blocked == eCanDefer) && (nMsg == 0) && (pWParam == 0) );
+    else
+        assert( (DeferPolicy::Allowed == eCanDefer) && (nMsg != 0) );
+
+    if ( DeferPolicy::Blocked == eCanDefer )
+    {
+        ImplSalYieldMutexAcquireWithWait();
+        bGotMutex = TRUE;
+    }
+    else if ( !(bGotMutex = ImplSalYieldMutexTryToAcquire()) )
+        bFailedCondition = TRUE;
+
+    if ( !bFailedCondition )
+    {
+        pFrame = GetWindowPtr( hWnd );
+        bFailedCondition = pFrame == nullptr;
+    }
+
+    if ( bFailedCondition )
+    {
+        if ( bGotMutex )
+            ImplSalYieldMutexRelease();
+        if ( DeferPolicy::Allowed == eCanDefer )
+        {
+            BOOL const ret = PostMessageW(hWnd, nMsg, pWParam, 0);
+            SAL_WARN_IF(0 == ret, "vcl", "ERROR: PostMessage() failed!");
+        }
+    }
+
+    return pFrame;
+}
+
+enum class DeferredState
 {
     IsDeferred,
     IsInitial
 };
 
-static BOOL ImplHandleDeferredPaintMsg( HWND hWnd, RECT* pRect,
-                                        DeferredPaint eProcessed = DeferredPaint::IsDeferred )
+static bool ImplHandleDeferredPaintMsg( HWND hWnd, RECT* pRect,
+                                        DeferredState eProcessed = DeferredState::IsDeferred )
 {
-    bool bGotMutex = false;
+    RECT* pMsgRect;
+    if ( DeferredState::IsInitial == eProcessed )
+    {
+        pMsgRect = new RECT;
+        CopyRect( pMsgRect, pRect );
+    }
+    else
+        pMsgRect = pRect;
 
-    WinSalFrame* pFrame = GetWindowPtr( hWnd );
+    WinSalFrame* pFrame = ProcessOrDeferMessage( hWnd, SAL_MSG_DEFERREDPAINT,
+                                                 reinterpret_cast<WPARAM>(pMsgRect) );
     if ( pFrame )
     {
-        if ( ImplSalYieldMutexTryToAcquire() )
-            bGotMutex = true;
-
-        if ( bGotMutex )
-        {
-            SalPaintEvent aPEvt( pRect->left, pRect->top, pRect->right-pRect->left, pRect->bottom-pRect->top );
-            pFrame->CallCallback( SalEvent::Paint, &aPEvt );
-            ImplSalYieldMutexRelease();
-            if ( DeferredPaint::IsDeferred == eProcessed )
-                delete pRect;
-        }
-        else
-        {
-            RECT* pMsgRect;
-            if ( DeferredPaint::IsInitial == eProcessed )
-            {
-                pMsgRect = new RECT;
-                CopyRect( pMsgRect, pRect );
-            }
-            else
-                pMsgRect = pRect;
-            BOOL const ret = PostMessageW(hWnd, SAL_MSG_DEFERREDPAINT, reinterpret_cast<WPARAM>(pMsgRect), 0);
-            SAL_WARN_IF(0 == ret, "vcl", "ERROR: PostMessage() failed!");
-        }
+        SalPaintEvent aPEvt( pRect->left, pRect->top, pRect->right-pRect->left, pRect->bottom-pRect->top );
+        pFrame->CallCallback( SalEvent::Paint, &aPEvt );
+        ImplSalYieldMutexRelease();
+        if ( DeferredState::IsDeferred == eProcessed )
+            delete pRect;
     }
 
-    return bGotMutex;
+    return (pFrame != nullptr);
 }
 
 static bool ImplHandlePaintMsg( HWND hWnd )
@@ -3783,11 +3818,11 @@ static bool ImplHandlePaintMsg( HWND hWnd )
         if ( bHasPaintRegion )
         {
             bPaintSuccessful = ImplHandleDeferredPaintMsg( 
-                hWnd, &aUpdateRect, DeferredPaint::IsInitial );
+                hWnd, &aUpdateRect, DeferredState::IsInitial );
             EndPaint( hWnd, &aPs );
         }
         else // if there is nothing to paint, the paint is successful
-            bPaintSuccessful = true
+            bPaintSuccessful = true;
     }
 
     return bPaintSuccessful;
@@ -3900,9 +3935,7 @@ static void ImplCallClosePopupsHdl( HWND hWnd )
 
 static void ImplHandleMoveMsg( HWND hWnd )
 {
-    if ( ImplSalYieldMutexTryToAcquire() )
-    {
-        WinSalFrame* pFrame = GetWindowPtr( hWnd );
+    WinSalFrame* pFrame = ProcessOrDeferMessage( hWnd, SAL_MSG_DEFERREDMOVE );
         if ( pFrame )
         {
             UpdateFrameGeometry( hWnd, pFrame );
@@ -3927,39 +3960,24 @@ static void ImplHandleMoveMsg( HWND hWnd )
             //#93851 if we call this handler, VCL floating windows are not updated correctly
             ImplCallMoveHdl( hWnd );
 
+            ImplSalYieldMutexRelease();
         }
-
-        ImplSalYieldMutexRelease();
-    }
-    else
-    {
-        BOOL const ret = PostMessageW( hWnd, SAL_MSG_DEFERREDMOVE, 0, 0 );
-        SAL_WARN_IF(0 == ret, "vcl", "ERROR: PostMessage() failed!");
-    }
 }
 
 static void ImplCallSizeHdl( HWND hWnd )
 {
     // as Windows can send these messages also, we have to use
     // the Solar semaphore
-    if ( ImplSalYieldMutexTryToAcquire() )
-    {
-        WinSalFrame* pFrame = GetWindowPtr( hWnd );
+    WinSalFrame* pFrame = ProcessOrDeferMessage( hWnd, SAL_MSG_DEFERREDCALLSIZE );
         if ( pFrame )
         {
             pFrame->CallCallback( SalEvent::Resize, nullptr );
             // to avoid double Paints by VCL and SAL
             if ( IsWindowVisible( hWnd ) && !pFrame->mbInShow )
                 UpdateWindow( hWnd );
-        }
 
-        ImplSalYieldMutexRelease();
-    }
-    else
-    {
-        BOOL const ret = PostMessageW( hWnd, SAL_MSG_DEFERREDCALLSIZE, 0, 0 );
-        SAL_WARN_IF(0 == ret, "vcl", "ERROR: PostMessage() failed!");
-    }
+            ImplSalYieldMutexRelease();
+        }
 }
 
 static void ImplHandleSizeMsg( HWND hWnd, WPARAM wParam, LPARAM lParam )
@@ -3983,12 +4001,13 @@ static void ImplHandleSizeMsg( HWND hWnd, WPARAM wParam, LPARAM lParam )
 
 static void ImplHandleFocusMsg( HWND hWnd )
 {
-    if ( ImplSalYieldMutexTryToAcquire() )
+    WinSalFrame* pFrame = ProcessOrDeferMessage( hWnd, SAL_MSG_DEFERREDSETFOCUS );
+    if ( pFrame )
     {
-        WinSalFrame* pFrame = GetWindowPtr( hWnd );
-        if ( pFrame && !WinSalFrame::mbInReparent )
+        if ( !WinSalFrame::mbInReparent )
         {
-            if ( ::GetFocus() == hWnd )
+            bool bGotFocus = ::GetFocus() == hWnd;
+            if ( bGotFocus )
             {
                 if ( IsWindowVisible( hWnd ) && !pFrame->mbInShow )
                     UpdateWindow( hWnd );
@@ -4002,53 +4021,32 @@ static void ImplHandleFocusMsg( HWND hWnd )
                     pFrame->mbAtCursorIME = (nImeProps & IME_PROP_AT_CARET) != 0;
                     pFrame->mbHandleIME = !pFrame->mbSpezIME;
                 }
-
-                pFrame->CallCallback( SalEvent::GetFocus, nullptr );
             }
-            else
-            {
-                pFrame->CallCallback( SalEvent::LoseFocus, nullptr );
-            }
+            pFrame->CallCallback( bGotFocus ? SalEvent::GetFocus : SalEvent::LoseFocus, nullptr );
         }
-
         ImplSalYieldMutexRelease();
-    }
-    else
-    {
-        BOOL const ret = PostMessageW( hWnd, SAL_MSG_DEFERREDSETFOCUS, 0, 0 );
-        SAL_WARN_IF(0 == ret, "vcl", "ERROR: PostMessage() failed!");
     }
 }
 
 static void ImplHandleCloseMsg( HWND hWnd )
 {
-    if ( ImplSalYieldMutexTryToAcquire() )
-    {
-        WinSalFrame* pFrame = GetWindowPtr( hWnd );
+    WinSalFrame* pFrame = ProcessOrDeferMessage( hWnd, WM_CLOSE );
         if ( pFrame )
         {
             pFrame->CallCallback( SalEvent::Close, nullptr );
+            ImplSalYieldMutexRelease();
         }
-
-        ImplSalYieldMutexRelease();
-    }
-    else
-    {
-        BOOL const ret = PostMessageW( hWnd, WM_CLOSE, 0, 0 );
-        SAL_WARN_IF(0 == ret, "vcl", "ERROR: PostMessage() failed!");
-    }
 }
 
 static long ImplHandleShutDownMsg( HWND hWnd )
 {
-    ImplSalYieldMutexAcquireWithWait();
-    long        nRet = 0;
-    WinSalFrame*   pFrame = GetWindowPtr( hWnd );
+    long nRet = 0;
+    WinSalFrame* pFrame = ProcessOrDeferMessage( hWnd, 0, 0, DeferPolicy::Blocked );
     if ( pFrame )
     {
         nRet = pFrame->CallCallback( SalEvent::Shutdown, nullptr );
+        ImplSalYieldMutexRelease();
     }
-    ImplSalYieldMutexRelease();
     return nRet;
 }
 
@@ -4083,9 +4081,7 @@ static void ImplHandleSettingsChangeMsg( HWND hWnd, UINT nMsg,
     if ( WM_SYSCOLORCHANGE == nMsg && GetSalData()->mhDitherPal )
         ImplUpdateSysColorEntries();
 
-    ImplSalYieldMutexAcquireWithWait();
-
-    WinSalFrame* pFrame = GetWindowPtr( hWnd );
+    WinSalFrame* pFrame = ProcessOrDeferMessage( hWnd, 0, 0, DeferPolicy::Blocked );
     if ( pFrame )
     {
         if ( (nMsg == WM_DISPLAYCHANGE) || (nMsg == WM_WININICHANGE) )
@@ -4095,20 +4091,18 @@ static void ImplHandleSettingsChangeMsg( HWND hWnd, UINT nMsg,
         }
 
         pFrame->CallCallback( nSalEvent, nullptr );
+        ImplSalYieldMutexRelease();
     }
-
-    ImplSalYieldMutexRelease();
 }
 
 static void ImplHandleUserEvent( HWND hWnd, LPARAM lParam )
 {
-    ImplSalYieldMutexAcquireWithWait();
-    WinSalFrame* pFrame = GetWindowPtr( hWnd );
+    WinSalFrame* pFrame = ProcessOrDeferMessage( hWnd, 0, 0, DeferPolicy::Blocked );
     if ( pFrame )
     {
         pFrame->CallCallback( SalEvent::UserEvent, reinterpret_cast<void*>(lParam) );
+        ImplSalYieldMutexRelease();
     }
-    ImplSalYieldMutexRelease();
 }
 
 static void ImplHandleForcePalette( HWND hWnd )
@@ -4117,14 +4111,7 @@ static void ImplHandleForcePalette( HWND hWnd )
     HPALETTE    hPal = pSalData->mhDitherPal;
     if ( hPal )
     {
-        if ( !ImplSalYieldMutexTryToAcquire() )
-        {
-            BOOL const ret = PostMessageW( hWnd, SAL_MSG_FORCEPALETTE, 0, 0 );
-            SAL_WARN_IF(0 == ret, "vcl", "ERROR: PostMessage() failed!");
-            return;
-        }
-
-        WinSalFrame* pFrame = GetWindowPtr( hWnd );
+        WinSalFrame* pFrame = ProcessOrDeferMessage( hWnd, SAL_MSG_FORCEPALETTE );
         if ( pFrame && pFrame->mpGraphics )
         {
             WinSalGraphics* pGraphics = pFrame->mpGraphics;
@@ -4139,8 +4126,8 @@ static void ImplHandleForcePalette( HWND hWnd )
                 }
             }
         }
-
-        ImplSalYieldMutexRelease();
+        if ( pFrame )
+            ImplSalYieldMutexRelease();
     }
 }
 
