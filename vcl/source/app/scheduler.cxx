@@ -19,11 +19,12 @@
 
 #include <svdata.hxx>
 #include <tools/time.hxx>
-#include <vcl/scheduler.hxx>
+#include <vcl/idle.hxx>
 #include <saltimer.hxx>
 #include <svdata.hxx>
 #include <salinst.hxx>
-#include <vcl/idle.hxx>
+#include <osl/mutex.hxx>
+
 
 /**
  * clang won't compile this in the Timer.hxx header, even with a class Idle
@@ -82,13 +83,32 @@ void Scheduler::SetDeletionFlags()
     mpSchedulerData = nullptr;
 }
 
+bool Scheduler::ImplInitScheduler()
+{
+    ImplSVData *pSVData = ImplGetSVData();
+
+    pSVData->mpFreeListMutex = new ::osl::Mutex();
+    if ( nullptr == pSVData->mpFreeListMutex )
+        return false;
+
+    pSVData->mpAppendMutex = new ::osl::Mutex();
+    if ( nullptr == pSVData->mpAppendMutex )
+        return false;
+
+    return true;
+}
+
 void Scheduler::ImplDeInitScheduler()
 {
-    ImplSVData*     pSVData = ImplGetSVData();
-    if (pSVData->mpSalTimer)
-    {
-        pSVData->mpSalTimer->Stop();
-    }
+    ImplSVData *pSVData = ImplGetSVData();
+
+    if (pSVData->mpSalTimer) pSVData->mpSalTimer->Stop();
+    DELETEZ( pSVData->mpSalTimer );
+
+    if ( pSVData->mpFreeListMutex ) pSVData->mpFreeListMutex->acquire();
+    DELETEZ( pSVData->mpFreeListMutex );
+    if ( pSVData->mpAppendMutex ) pSVData->mpAppendMutex->acquire();
+    DELETEZ( pSVData->mpAppendMutex );
 
     // Free active tasks
     ImplSchedulerData *pSchedulerData = pSVData->mpFirstSchedulerData;
@@ -114,9 +134,6 @@ void Scheduler::ImplDeInitScheduler()
     pSVData->mpFirstSchedulerData = nullptr;
     pSVData->mpFreeSchedulerData  = nullptr;
     pSVData->mnTimerPeriod        = 0;
-
-    delete pSVData->mpSalTimer;
-    pSVData->mpSalTimer = nullptr;
 }
 
 /**
@@ -206,9 +223,11 @@ bool Scheduler::ProcessTaskScheduling( IdleRunPolicy eIdleRunPolicy )
         return false;
     pSVData->mbNeedsReschedule = false;
 
-    ImplSchedulerData* pSchedulerData = pSVData->mpFirstSchedulerData;
-    ImplSchedulerData* pPrevSchedulerData = nullptr;
+    ImplSchedulerData *pSchedulerData = pSVData->mpFirstSchedulerData;
+    ImplSchedulerData *pPrevSchedulerData = nullptr;
     ImplSchedulerData *pPrevMostUrgent = nullptr;
+    ImplSchedulerData *pFirstFreedSchedulerData = nullptr;
+    ImplSchedulerData *pLastFreedSchedulerData = nullptr;
     ImplSchedulerData *pMostUrgent = nullptr;
     sal_uInt64         nMinPeriod = InfiniteTimeoutMs;
     bool               bIsNestedCall = false;
@@ -240,13 +259,35 @@ bool Scheduler::ProcessTaskScheduling( IdleRunPolicy eIdleRunPolicy )
         // Can this task be removed from scheduling?
         if ( !pSchedulerData->mpScheduler )
         {
+            // last element can be changed by Start(), so needs protection
+            bool bIsLastElement = nullptr == pSchedulerData->mpNext;
+            if ( bIsLastElement )
+                 pSVData->mpAppendMutex->acquire();
             ImplSchedulerData* pNextSchedulerData = pSchedulerData->mpNext;
+            // if Start() has appended a task, while we waited for the mutex,
+            // we're not the last anymore, so release the mutex
+            if ( bIsLastElement && pNextSchedulerData )
+            {
+                pSVData->mpAppendMutex->release();
+                bIsLastElement = false;
+            }
+
             if ( pPrevSchedulerData )
                 pPrevSchedulerData->mpNext = pNextSchedulerData;
             else
                 pSVData->mpFirstSchedulerData = pNextSchedulerData;
-            pSchedulerData->mpNext = pSVData->mpFreeSchedulerData;
-            pSVData->mpFreeSchedulerData = pSchedulerData;
+
+            if ( bIsLastElement )
+            {
+                pSVData->mpLastSchedulerData = pPrevSchedulerData;
+                // critical section passed - release the mutex
+                pSVData->mpAppendMutex->release();
+            }
+
+            if ( !pLastFreedSchedulerData )
+                pLastFreedSchedulerData = pSchedulerData;
+            pSchedulerData->mpNext = pFirstFreedSchedulerData;
+            pFirstFreedSchedulerData = pSchedulerData;
             pSchedulerData = pNextSchedulerData;
             pSVData->mbTaskRemoved = true;
             continue;
@@ -275,6 +316,14 @@ next_entry:
 
     assert( !pSchedulerData );
 
+    // Prepend freed scheduler data objects
+    if ( pFirstFreedSchedulerData )
+    {
+        osl::MutexGuard aImplGuard( pSVData->mpFreeListMutex );
+        pLastFreedSchedulerData->mpNext = pSVData->mpFreeSchedulerData;
+        pSVData->mpFreeSchedulerData = pFirstFreedSchedulerData;
+    }
+
     // We just have to handle removed tasks for nested calls
     if ( !bIsNestedCall )
         pSVData->mbTaskRemoved = false;
@@ -299,15 +348,16 @@ next_entry:
         }
 
         // do some simple round-robin scheduling
-        // nothing to do, if we're already the last element
         if ( pMostUrgent->mpScheduler )
         {
             pMostUrgent->mnUpdateTime = nTime;
             UpdateMinPeriod( pMostUrgent, nTime, nMinPeriod );
 
+            // nothing to do, if we're already the last element
             if ( pMostUrgent->mpNext )
             {
-                // see ^^^^^
+                // if a nested call has removed items, pPrevMostUrgent is
+                // wrong, so we have to find the correct pPrevMostUrgent
                 if ( pSVData->mbTaskRemoved )
                 {
                     pPrevMostUrgent = pSVData->mpFirstSchedulerData;
@@ -324,14 +374,11 @@ next_entry:
                     pPrevMostUrgent->mpNext = pMostUrgent->mpNext;
                 else
                     pSVData->mpFirstSchedulerData = pMostUrgent->mpNext;
-                // Invoke() might have changed the task list - find new end
-                while ( pPrevSchedulerData->mpNext )
-                {
-                    pPrevSchedulerData = pPrevSchedulerData->mpNext;
-                    UpdateMinPeriod( pPrevSchedulerData, nTime, nMinPeriod );
-                }
-                pPrevSchedulerData->mpNext = pMostUrgent;
+
                 pMostUrgent->mpNext = nullptr;
+                osl::MutexGuard aImplGuard( pSVData->mpAppendMutex );
+                pSVData->mpLastSchedulerData->mpNext = pMostUrgent;
+                pSVData->mpLastSchedulerData = pMostUrgent;
             }
         }
     }
@@ -363,34 +410,45 @@ void Scheduler::Start()
     if (pSVData->mbDeInit)
         return;
 
-    DBG_TESTSOLARMUTEX();
-
     if ( mpSchedulerData && mpSchedulerData->mpNext )
         Scheduler::SetDeletionFlags();
+    assert( !mpSchedulerData );
     if ( !mpSchedulerData )
     {
-        // insert Scheduler
-        if ( pSVData->mpFreeSchedulerData )
+        // Try fetching free Scheduler object from list
+        bool bNewObject = false;
         {
-            mpSchedulerData = pSVData->mpFreeSchedulerData;
-            pSVData->mpFreeSchedulerData = mpSchedulerData->mpNext;
+            osl::MutexGuard aImplGuard( pSVData->mpFreeListMutex );
+            if ( pSVData->mpFreeSchedulerData )
+            {
+                mpSchedulerData = pSVData->mpFreeSchedulerData;
+                pSVData->mpFreeSchedulerData = mpSchedulerData->mpNext;
+            }
+            else
+                bNewObject = true;
         }
-        else
+        if ( bNewObject )
             mpSchedulerData = new ImplSchedulerData;
         mpSchedulerData->mpScheduler   = this;
         mpSchedulerData->mbInScheduler = false;
-        mpSchedulerData->mpNext = nullptr;
+        mpSchedulerData->mpNext        = nullptr;
 
         // insert last due to SFX!
-        ImplSchedulerData* pData = pSVData->mpFirstSchedulerData;
-        if ( pData )
         {
-            while ( pData->mpNext )
-                pData = pData->mpNext;
-            pData->mpNext = mpSchedulerData;
+            osl::MutexGuard aImplGuard( pSVData->mpAppendMutex );
+            if ( pSVData->mpFirstSchedulerData == nullptr )
+            {
+                assert( pSVData->mpLastSchedulerData == nullptr );
+                pSVData->mpFirstSchedulerData = mpSchedulerData;
+                pSVData->mpLastSchedulerData = mpSchedulerData;
+            }
+            else
+            {
+                assert( pSVData->mpLastSchedulerData != nullptr );
+                pSVData->mpLastSchedulerData->mpNext = mpSchedulerData;
+                pSVData->mpLastSchedulerData = mpSchedulerData;
+            }
         }
-        else
-            pSVData->mpFirstSchedulerData = mpSchedulerData;
         SAL_INFO( "vcl.schedule", tools::Time::GetSystemTicks()
             << " " << mpSchedulerData << "  added      " << *this );
     }

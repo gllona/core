@@ -73,6 +73,7 @@ public:
     Scheduler( const sal_Char *pDebugName );
     Scheduler( const Scheduler& rScheduler );
     virtual ~Scheduler();
+    Scheduler& operator=( const Scheduler& rScheduler );
 
     void SetPriority(SchedulerPriority ePriority) { mePriority = ePriority; }
     SchedulerPriority GetPriority() const { return mePriority; }
@@ -88,7 +89,7 @@ public:
 
     inline bool     IsActive() const;
 
-    Scheduler&      operator=( const Scheduler& rScheduler );
+    static bool     ImplInitScheduler();
     static void     ImplDeInitScheduler();
 
     /// Process one pending Timer with highhest priority

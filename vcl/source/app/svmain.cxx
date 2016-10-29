@@ -291,6 +291,9 @@ bool InitVCL()
     if ( !pSVData->mpDefInst )
         return false;
 
+    if( !Scheduler::ImplInitScheduler() )
+        return false;
+
     // Desktop Environment context (to be able to get value of "system.desktop-environment" as soon as possible)
     css::uno::setCurrentContext(
         new DesktopEnvironmentContext( css::uno::getCurrentContext() ) );
