@@ -259,7 +259,7 @@ int ImplSalWICompareAscii( const wchar_t* pStr1, const char* pStr2 );
 // wParam == nFlags; lParam == 0
 #define SAL_MSG_ENDEXTTEXTINPUT     (WM_USER+145)
 // DEFERREDTIMER-Message; wparam = 0, lParam == time
-#define SAL_MSG_DEFERREDTIMER       (WM_USER+161)
+#define SAL_MSG_DEFERREDTIMER       (WM_USER+146)
 
 // SysChild-ToTop; wParam = 0; lParam = 0
 #define SALOBJ_MSG_TOTOP            (WM_USER+160)
