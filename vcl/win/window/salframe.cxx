@@ -3701,14 +3701,14 @@ long ImplHandleSalObjSysCharMsg( HWND hWnd, WPARAM wParam, LPARAM lParam )
     return nRet;
 }
 
-enum class PostPaint
+enum class DeferredPaint
 {
-    IsPosted,
+    IsDeferred,
     IsInitial
 };
 
-static bool ImplHandlePostPaintMsg( HWND hWnd, RECT* pRect,
-                                    PostPaint eProcessed = PostPaint::IsPosted )
+static BOOL ImplHandleDeferredPaintMsg( HWND hWnd, RECT* pRect,
+                                        DeferredPaint eProcessed = DeferredPaint::IsDeferred )
 {
     bool bGotMutex = false;
 
@@ -3723,20 +3723,20 @@ static bool ImplHandlePostPaintMsg( HWND hWnd, RECT* pRect,
             SalPaintEvent aPEvt( pRect->left, pRect->top, pRect->right-pRect->left, pRect->bottom-pRect->top );
             pFrame->CallCallback( SalEvent::Paint, &aPEvt );
             ImplSalYieldMutexRelease();
-            if ( PostPaint::IsIsPosted == eProcessed )
+            if ( DeferredPaint::IsDeferred == eProcessed )
                 delete pRect;
         }
         else
         {
             RECT* pMsgRect;
-            if ( PostPaint::IsInitial == eProcessed )
+            if ( DeferredPaint::IsInitial == eProcessed )
             {
                 pMsgRect = new RECT;
                 CopyRect( pMsgRect, pRect );
             }
             else
                 pMsgRect = pRect;
-            BOOL const ret = PostMessageW(hWnd, SAL_MSG_POSTPAINT, reinterpret_cast<WPARAM>(pMsgRect), 0);
+            BOOL const ret = PostMessageW(hWnd, SAL_MSG_DEFERREDPAINT, reinterpret_cast<WPARAM>(pMsgRect), 0);
             SAL_WARN_IF(0 == ret, "vcl", "ERROR: PostMessage() failed!");
         }
     }
@@ -3782,8 +3782,8 @@ static bool ImplHandlePaintMsg( HWND hWnd )
         // try painting
         if ( bHasPaintRegion )
         {
-            bPaintSuccessful = ImplHandlePostPaintMsg( hWnd, &aUpdateRect,
-                                                       PostPaint::IsInitial );
+            bPaintSuccessful = ImplHandleDeferredPaintMsg( 
+                hWnd, &aUpdateRect, DeferredPaint::IsInitial );
             EndPaint( hWnd, &aPs );
         }
         else // if there is nothing to paint, the paint is successful
@@ -3933,7 +3933,7 @@ static void ImplHandleMoveMsg( HWND hWnd )
     }
     else
     {
-        BOOL const ret = PostMessageW( hWnd, SAL_MSG_POSTMOVE, 0, 0 );
+        BOOL const ret = PostMessageW( hWnd, SAL_MSG_DEFERREDMOVE, 0, 0 );
         SAL_WARN_IF(0 == ret, "vcl", "ERROR: PostMessage() failed!");
     }
 }
@@ -3957,7 +3957,7 @@ static void ImplCallSizeHdl( HWND hWnd )
     }
     else
     {
-        BOOL const ret = PostMessageW( hWnd, SAL_MSG_POSTCALLSIZE, 0, 0 );
+        BOOL const ret = PostMessageW( hWnd, SAL_MSG_DEFERREDCALLSIZE, 0, 0 );
         SAL_WARN_IF(0 == ret, "vcl", "ERROR: PostMessage() failed!");
     }
 }
@@ -4015,7 +4015,7 @@ static void ImplHandleFocusMsg( HWND hWnd )
     }
     else
     {
-        BOOL const ret = PostMessageW( hWnd, SAL_MSG_POSTFOCUS, 0, 0 );
+        BOOL const ret = PostMessageW( hWnd, SAL_MSG_DEFERREDSETFOCUS, 0, 0 );
         SAL_WARN_IF(0 == ret, "vcl", "ERROR: PostMessage() failed!");
     }
 }
@@ -4156,7 +4156,7 @@ static LRESULT ImplHandlePalette( bool bFrame, HWND hWnd, UINT nMsg,
     if ( pSalData->mbInPalChange )
         return 0;
 
-    if ( (nMsg == WM_PALETTECHANGED) || (nMsg == SAL_MSG_POSTPALCHANGED) )
+    if ( (nMsg == WM_PALETTECHANGED) || (nMsg == SAL_MSG_DEFERREDPALCHANGED) )
     {
         if ( reinterpret_cast<HWND>(wParam) == hWnd )
             return 0;
@@ -4171,12 +4171,12 @@ static LRESULT ImplHandlePalette( bool bFrame, HWND hWnd, UINT nMsg,
             bReleaseMutex = TRUE;
         else if ( nMsg == WM_QUERYNEWPALETTE )
         {
-            BOOL const ret = PostMessageW(hWnd, SAL_MSG_POSTQUERYNEWPAL, wParam, lParam);
+            BOOL const ret = PostMessageW(hWnd, SAL_MSG_DEFERREDQUERYNEWPAL, wParam, lParam);
             SAL_WARN_IF(0 == ret, "vcl", "ERROR: PostMessage() failed!");
         }
         else /* ( nMsg == WM_PALETTECHANGED ) */
         {
-            BOOL const ret = PostMessageW(hWnd, SAL_MSG_POSTPALCHANGED, wParam, lParam);
+            BOOL const ret = PostMessageW(hWnd, SAL_MSG_DEFERREDPALCHANGED, wParam, lParam);
             SAL_WARN_IF(0 == ret, "vcl", "ERROR: PostMessage() failed!");
         }
     }
@@ -5620,7 +5620,7 @@ LRESULT CALLBACK SalFrameWndProc( HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lP
             break;
 
         case WM_MOVE:
-        case SAL_MSG_POSTMOVE:
+        case SAL_MSG_DEFERREDMOVE:
             ImplHandleMoveMsg( hWnd );
             rDef = FALSE;
             break;
@@ -5628,7 +5628,7 @@ LRESULT CALLBACK SalFrameWndProc( HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lP
             ImplHandleSizeMsg( hWnd, wParam, lParam );
             rDef = FALSE;
             break;
-        case SAL_MSG_POSTCALLSIZE:
+        case SAL_MSG_DEFERREDCALLSIZE:
             ImplCallSizeHdl( hWnd );
             rDef = FALSE;
             break;
@@ -5646,8 +5646,8 @@ LRESULT CALLBACK SalFrameWndProc( HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lP
             bCheckTimers = ImplHandlePaintMsg( hWnd );
             rDef = FALSE;
             break;
-        case SAL_MSG_POSTPAINT:
-            bCheckTimers = ImplHandlePostPaintMsg( hWnd, reinterpret_cast<RECT*>(wParam) );
+        case SAL_MSG_DEFERREDPAINT:
+            bCheckTimers = ImplHandleDeferredPaintMsg( hWnd, reinterpret_cast<RECT*>(wParam) );
             rDef = FALSE;
             break;
 
@@ -5657,7 +5657,7 @@ LRESULT CALLBACK SalFrameWndProc( HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lP
             break;
 
         case WM_QUERYNEWPALETTE:
-        case SAL_MSG_POSTQUERYNEWPAL:
+        case SAL_MSG_DEFERREDQUERYNEWPAL:
             nRet = ImplHandlePalette( true, hWnd, nMsg, wParam, lParam, rDef );
             break;
 
@@ -5706,7 +5706,7 @@ LRESULT CALLBACK SalFrameWndProc( HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lP
             DestroyCaret();
             SAL_FALLTHROUGH;
         case WM_SETFOCUS:
-        case SAL_MSG_POSTFOCUS:
+        case SAL_MSG_DEFERREDSETFOCUS:
             ImplHandleFocusMsg( hWnd );
             rDef = FALSE;
             break;
@@ -5879,7 +5879,7 @@ LRESULT CALLBACK SalFrameWndProc( HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lP
                 MSG aMsg;
                 if( ! PeekMessageW( &aMsg, nullptr, WM_PAINT, WM_PAINT, PM_NOREMOVE | PM_NOYIELD ) )
                 {
-                    BOOL const ret = PostMessageW(pSalData->mpFirstInstance->mhComWnd, SAL_MSG_POSTTIMER, 0, nCurTime);
+                    BOOL const ret = PostMessageW(pSalData->mpFirstInstance->mhComWnd, SAL_MSG_DEFERREDTIMER, 0, nCurTime);
                     SAL_WARN_IF(0 == ret, "vcl", "ERROR: PostMessage() failed!");
                 }
             }
@@ -5923,7 +5923,7 @@ bool ImplHandleGlobalMsg( HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lParam, LR
     // handle all messages concerning all frames so they get processed only once
     // Must work for Unicode and none Unicode
     bool bResult = FALSE;
-    if ( (nMsg == WM_PALETTECHANGED) || (nMsg == SAL_MSG_POSTPALCHANGED) )
+    if ( (nMsg == WM_PALETTECHANGED) || (nMsg == SAL_MSG_DEFERREDPALCHANGED) )
     {
         int bDef = TRUE;
         rlResult = ImplHandlePalette( false, hWnd, nMsg, wParam, lParam, bDef );

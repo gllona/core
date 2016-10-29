@@ -725,7 +725,7 @@ LRESULT CALLBACK SalComWndProc( HWND, UINT nMsg, WPARAM wParam, LPARAM lParam, i
             ReleaseDC( reinterpret_cast<HWND>(wParam), reinterpret_cast<HDC>(lParam) );
             rDef = FALSE;
             break;
-        case SAL_MSG_POSTTIMER:
+        case SAL_MSG_DEFERREDTIMER:
             EmitTimerCallback();
             break;
         case SAL_MSG_TIMER_CALLBACK:
@@ -826,7 +826,7 @@ bool WinSalInstance::AnyInput( VclInputFlags nType )
                                   PM_NOREMOVE | PM_NOYIELD ) )
                 return true;
 
-            if ( PeekMessageW( &aMsg, nullptr, SAL_MSG_POSTCALLSIZE, SAL_MSG_POSTCALLSIZE,
+            if ( PeekMessageW( &aMsg, nullptr, SAL_MSG_DEFERREDCALLSIZE, SAL_MSG_DEFERREDCALLSIZE,
                                   PM_NOREMOVE | PM_NOYIELD ) )
                 return true;
 
@@ -834,7 +834,7 @@ bool WinSalInstance::AnyInput( VclInputFlags nType )
                                   PM_NOREMOVE | PM_NOYIELD ) )
                 return true;
 
-            if ( PeekMessageW( &aMsg, nullptr, SAL_MSG_POSTMOVE, SAL_MSG_POSTMOVE,
+            if ( PeekMessageW( &aMsg, nullptr, SAL_MSG_DEFERREDMOVE, SAL_MSG_DEFERREDMOVE,
                                   PM_NOREMOVE | PM_NOYIELD ) )
                 return true;
         }

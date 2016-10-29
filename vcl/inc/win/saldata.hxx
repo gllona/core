@@ -233,17 +233,17 @@ int ImplSalWICompareAscii( const wchar_t* pStr1, const char* pStr2 );
 // NULL-Message, should not be processed
 #define SAL_MSG_DUMMY               (WM_USER+132)
 // wParam == 0; lParam == 0
-#define SAL_MSG_POSTFOCUS           (WM_USER+133)
+#define SAL_MSG_DEFERREDSETFOCUS    (WM_USER+133)
 // wParam == wParam; lParam == lParam
-#define SAL_MSG_POSTQUERYNEWPAL     (WM_USER+134)
+#define SAL_MSG_DEFERREDQUERYNEWPAL (WM_USER+134)
 // wParam == wParam; lParam == lParam
-#define SAL_MSG_POSTPALCHANGED      (WM_USER+135)
+#define SAL_MSG_DEFERREDPALCHANGED  (WM_USER+135)
 // wParam == wParam; lParam == lParam
-#define SAL_MSG_POSTMOVE            (WM_USER+136)
+#define SAL_MSG_DEFERREDMOVE        (WM_USER+136)
 // wParam == wParam; lParam == lParam
-#define SAL_MSG_POSTCALLSIZE        (WM_USER+137)
+#define SAL_MSG_DEFERREDCALLSIZE    (WM_USER+137)
 // wParam == pRECT; lParam == 0
-#define SAL_MSG_POSTPAINT           (WM_USER+138)
+#define SAL_MSG_DEFERREDPAINT       (WM_USER+138)
 // wParam == 0; lParam == pFrame; lResult 0
 #define SAL_MSG_FORCEPALETTE        (WM_USER+139)
 // wParam == 0; lParam == 0
@@ -258,13 +258,13 @@ int ImplSalWICompareAscii( const wchar_t* pStr1, const char* pStr2 );
 #define SAL_MSG_SETINPUTCONTEXT     (WM_USER+144)
 // wParam == nFlags; lParam == 0
 #define SAL_MSG_ENDEXTTEXTINPUT     (WM_USER+145)
-// POSTTIMER-Message; wparam = 0, lParam == time
-#define SAL_MSG_POSTTIMER        (WM_USER+161)
+// DEFERREDTIMER-Message; wparam = 0, lParam == time
+#define SAL_MSG_DEFERREDTIMER       (WM_USER+161)
 
 // SysChild-ToTop; wParam = 0; lParam = 0
 #define SALOBJ_MSG_TOTOP            (WM_USER+160)
-// POSTFOCUS-Message; wParam == bFocus; lParam == 0
-#define SALOBJ_MSG_POSTFOCUS        (WM_USER+161)
+// DEFERREDFOCUS-Message; wParam == bFocus; lParam == 0
+#define SALOBJ_MSG_DEFERREDFOCUS    (WM_USER+161)
 
 // Call the Timer's callback from the main thread
 #define SAL_MSG_TIMER_CALLBACK      (WM_USER+162)
