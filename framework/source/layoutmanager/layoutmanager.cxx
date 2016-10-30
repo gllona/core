@@ -144,6 +144,7 @@ LayoutManager::LayoutManager( const Reference< XComponentContext >& xContext ) :
     }
 
     m_aAsyncLayoutTimer.SetTimeout( 50 );
+    m_aAsyncLayoutTimer.SetPriority( SchedulerPriority::HIGH_IDLE );
     m_aAsyncLayoutTimer.SetTimeoutHdl( LINK( this, LayoutManager, AsyncLayoutHdl ) );
     m_aAsyncLayoutTimer.SetDebugName( "framework::LayoutManager m_aAsyncLayoutTimer" );
 
@@ -233,13 +234,17 @@ void LayoutManager::implts_lock()
 {
     SolarMutexGuard g;
     ++m_nLockCount;
+    m_aAsyncLayoutTimer.Stop();
 }
 
 bool LayoutManager::implts_unlock()
 {
     SolarMutexGuard g;
     m_nLockCount = std::max( m_nLockCount-1, static_cast<sal_Int32>(0) );
-    return ( m_nLockCount == 0 );
+    bool bCanLayout = ( m_nLockCount == 0 );
+    if ( bCanLayout && m_bMustDoLayout && !m_aAsyncLayoutTimer.IsActive() )
+        m_aAsyncLayoutTimer.Start();
+    return bCanLayout;
 }
 
 void LayoutManager::implts_reset( bool bAttached )
@@ -2277,9 +2282,9 @@ throw (RuntimeException, std::exception)
     // conform to documentation: unlock with lock count == 0 means force a layout
 
     SolarMutexClearableGuard aWriteLock;
-        if ( bDoLayout )
-                m_aAsyncLayoutTimer.Stop();
-        aWriteLock.clear();
+    if ( bDoLayout )
+        m_aAsyncLayoutTimer.Stop();
+    aWriteLock.clear();
 
     Any a( nLockCount );
     implts_notifyListeners( frame::LayoutManagerEvents::UNLOCK, a );
@@ -2681,11 +2686,7 @@ throw( uno::RuntimeException, std::exception )
         // application modules need this. So we have to check if this is the first
         // call after the async layout time expired.
         m_bMustDoLayout = true;
-        if ( !m_aAsyncLayoutTimer.IsActive() )
-        {
-            m_aAsyncLayoutTimer.Invoke();
-        }
-        if ( m_nLockCount == 0 )
+        if ( m_nLockCount == 0 && !m_aAsyncLayoutTimer.IsActive() )
             m_aAsyncLayoutTimer.Start();
     }
     else if ( m_xFrame.is() && aEvent.Source == m_xFrame->getContainerWindow() )
@@ -2756,7 +2757,6 @@ void SAL_CALL LayoutManager::windowHidden( const lang::EventObject& aEvent ) thr
 IMPL_LINK_NOARG(LayoutManager, AsyncLayoutHdl, Timer *, void)
 {
     SolarMutexClearableGuard aReadLock;
-    m_aAsyncLayoutTimer.Stop();
 
     if( !m_xContainerWindow.is() )
         return;
