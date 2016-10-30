@@ -40,7 +40,8 @@ class ImplSchedulerDataPrinter(object):
                 task_type = "Timer"
             else:
                 task_type = "Task"
-            res = "{:7s}{:10s} active: {:6s}".format( task_type, str(task['mePriority']), str(task['mbActive']) )
+            res = "{:7s} p: {:10s} s: {:10s}".format( task_type,
+                str(task['mePriority'])[14:], str(task['meStatus'])[12:] )
             name = task['mpDebugName']
             if not name:
                 res = res + "   (task debug name not set)"

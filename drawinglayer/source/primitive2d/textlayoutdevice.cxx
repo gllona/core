@@ -91,6 +91,8 @@ namespace
 
     void ImpTimedRefDev::Invoke()
     {
+        // deleting ourself, so explicitly dispose, ignoring bInScheduler state!
+        this->Dispose( DisposePolicy::IGNORE_INVOKE );
         // for obvious reasons, do not call anything after this
         mrOwnerOfMe.reset();
     }

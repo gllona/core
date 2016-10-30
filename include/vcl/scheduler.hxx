@@ -47,6 +47,7 @@ public:
     static const SAL_CONSTEXPR sal_uInt64 ImmediateTimeoutMs = 0;
     static const SAL_CONSTEXPR sal_uInt64 InfiniteTimeoutMs  = SAL_MAX_UINT64;
 
+    static bool       ImplInitScheduler();
     static void       ImplDeInitScheduler();
 
     /// Process one pending Timer with highhest priority
@@ -82,6 +83,22 @@ enum class TaskPriority
     LOWEST       = 8
 };
 
+enum class DisposePolicy
+{
+    WAIT_INVOKE,   ///< Wait for Invoke() to finish, if invoked
+    IGNORE_INVOKE  ///< Dispose object ignoring Invoke() state (for self-deleting objects)
+};
+
+/**
+ * Non of the states tell anything about being invoked.
+ */
+enum class TaskStatus
+{
+    SCHEDULED,   ///< The task is active and waiting to be invoked (again)
+    STOPPED,     ///< The task is stopped
+    DISPOSED     ///< The task is disposed, which prevent any further invokes!
+};
+
 class VCL_DLLPUBLIC Task
 {
     friend class Scheduler;
@@ -90,7 +107,7 @@ class VCL_DLLPUBLIC Task
     ImplSchedulerData *mpSchedulerData; /// Pointer to the element in scheduler list
     const sal_Char    *mpDebugName;     /// Useful for debugging
     TaskPriority       mePriority;      /// Task priority
-    bool               mbActive;        /// Currently in the scheduler
+    TaskStatus         meStatus;        /// Status of the task
 
 protected:
     static void StartTimer( sal_uInt64 nMS );
@@ -131,7 +148,28 @@ public:
     virtual void    Start();
     void            Stop();
 
-    bool            IsActive() const { return mbActive; }
+    /**
+     * Dispose and clean up the Scheduler object
+     *
+     * It'll wait until the object is no longer invoked!
+     *
+     * Also call Dispose(), if Invoke() depends on any resources you're going
+     * to destroy.
+     *
+     * If you have a self-deleting object, i.e. an object composed or inherited
+     * from Scheduler, which you delete inside it's Invoke() function, you must
+     * explicitly Dispose() the invoked Scheduler object using the
+     * DisposePolicy::IGNORE_INVOKE policy, otherwise the Schedulers destructor
+     * will deadlock waiting for Invoke() to finish!
+     *
+     * @param ePolicy Optionally ignore the Schedulers Invoke() state.
+     */
+    void            Dispose( DisposePolicy ePolicy = DisposePolicy::WAIT_INVOKE );
+
+    /**
+     * Is this Task waiting to be invoked?
+     */
+    bool            IsActive() const;
 };
 
 template< typename charT, typename traits >

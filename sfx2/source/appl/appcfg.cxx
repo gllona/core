@@ -123,6 +123,8 @@ IMPL_LINK(SfxEventAsyncer_Impl, IdleHdl, Timer*, pAsyncIdle, void)
     SfxGetpApp()->Broadcast( aHint );
     if ( xRef.is() )
         xRef->Broadcast( aHint );
+    // deleting ourself, so explicitly dispose, ignoring bInScheduler state!
+    pAsyncIdle->Dispose( DisposePolicy::IGNORE_INVOKE );
     delete this;
 }
 

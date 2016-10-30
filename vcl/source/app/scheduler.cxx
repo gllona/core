@@ -23,6 +23,8 @@
 #include <saltimer.hxx>
 #include <svdata.hxx>
 #include <salinst.hxx>
+#include <osl/mutex.hxx>
+#include <osl/conditn.h>
 
 namespace {
 
@@ -60,6 +62,28 @@ inline std::basic_ostream<charT, traits> & operator <<(
 
 } // end anonymous namespace
 
+bool Scheduler::ImplInitScheduler()
+{
+    ImplSVData *pSVData = ImplGetSVData();
+    assert( !pSVData->mbDeInit );
+    ImplSchedulerContext &rSchedCtx = pSVData->maSchedCtx;
+
+    rSchedCtx.mpInvokeMutex = new ::osl::Mutex();
+    if ( nullptr == rSchedCtx.mpInvokeMutex )
+        goto bailout_init;
+
+    rSchedCtx.maInvokeCondition = osl_createCondition();
+    if ( nullptr == rSchedCtx.maInvokeCondition )
+        goto bailout_init;
+
+    return true;
+
+bailout_init:
+    DELETEZ( rSchedCtx.mpInvokeMutex );
+
+    return false;
+}
+
 void Scheduler::ImplDeInitScheduler()
 {
     ImplSVData* pSVData = ImplGetSVData();
@@ -69,14 +93,16 @@ void Scheduler::ImplDeInitScheduler()
     if (rSchedCtx.mpSalTimer) rSchedCtx.mpSalTimer->Stop();
     DELETEZ( rSchedCtx.mpSalTimer );
 
+    if ( rSchedCtx.mpInvokeMutex ) rSchedCtx.mpInvokeMutex->acquire();
+    DELETEZ( rSchedCtx.mpInvokeMutex );
+
+    osl_destroyCondition( rSchedCtx.maInvokeCondition );
+    rSchedCtx.maInvokeCondition = nullptr;
+
+    // Free active tasks
     ImplSchedulerData* pSchedulerData = rSchedCtx.mpFirstSchedulerData;
     while ( pSchedulerData )
     {
-        if ( pSchedulerData->mpTask )
-        {
-            pSchedulerData->mpTask->mbActive = false;
-            pSchedulerData->mpTask->mpSchedulerData = nullptr;
-        }
         ImplSchedulerData* pTempSchedulerData = pSchedulerData;
         pSchedulerData = pSchedulerData->mpNext;
         delete pTempSchedulerData;
@@ -298,7 +324,16 @@ next_entry:
         SAL_INFO( "vcl.schedule", tools::Time::GetSystemTicks() << " "
                   << pMostUrgent << "  invoke     " << *pMostUrgent->mpTask );
 
-        Task *pTask = pMostUrgent->mpTask;
+        Task *pTask = nullptr;
+        {
+            osl::MutexGuard aImplGuard( rSchedCtx.mpInvokeMutex );
+            pMostUrgent->mbInScheduler = true;
+            // SetDeletionFlags will set mpScheduler == nullptr for single-shot tasks
+            pTask = pMostUrgent->mpTask;
+        }
+
+        if ( nullptr == pTask )
+            goto skip_invoke;
 
         // prepare Scheduler object for deletion after handling
         pTask->SetDeletionFlags();
@@ -306,9 +341,9 @@ next_entry:
         // invoke the task
         // defer pushing the scheduler stack to next run, as most tasks will
         // not run a nested Scheduler loop and don't need a stack push!
-        pMostUrgent->mbInScheduler = true;
         pTask->Invoke();
-        pMostUrgent->mbInScheduler = false;
+        // Invoke() can delete the sched(uler) object, so it might be invalid now,
+        // e.g. see SfxItemDisruptor_Impl::Delete
 
         // eventually pop the scheduler stack
         // this just happens for nested calls, which renders all accounting
@@ -338,6 +373,11 @@ next_entry:
                 UpdateSystemTimer( rSchedCtx, nMinPeriod, false, nTime );
             }
         }
+
+skip_invoke:
+        pMostUrgent->mbInScheduler = false;
+        // notify all waiting / nested threads to check their mbInScheduler
+        osl_setCondition( rSchedCtx.maInvokeCondition );
     }
 
     return !!pMostUrgent;
@@ -356,21 +396,20 @@ void Task::StartTimer( sal_uInt64 nMS )
 
 void Task::SetDeletionFlags()
 {
-    mbActive = false;
+    if ( TaskStatus::DISPOSED != meStatus )
+        meStatus = TaskStatus::STOPPED;
 }
 
 void Task::Start()
 {
     ImplSVData *const pSVData = ImplGetSVData();
-    if (pSVData->mbDeInit)
-    {
+    if (pSVData->mbDeInit || TaskStatus::DISPOSED == meStatus)
         return;
-    }
 
     DBG_TESTSOLARMUTEX();
 
     // Mark timer active
-    mbActive = true;
+    meStatus = TaskStatus::SCHEDULED;
 
     if ( !mpSchedulerData )
     {
@@ -392,9 +431,48 @@ void Task::Start()
 
 void Task::Stop()
 {
-    SAL_INFO_IF( mbActive, "vcl.schedule", tools::Time::GetSystemTicks()
-                  << " " << mpSchedulerData << "  stopped    " << *this );
-    mbActive = false;
+    if ( TaskStatus::SCHEDULED != meStatus )
+        return;
+    SAL_INFO( "vcl.schedule", tools::Time::GetSystemTicks()
+              << " " << mpSchedulerData << "  stopped    " << *this );
+    Task::SetDeletionFlags();
+}
+
+void Task::Dispose( const DisposePolicy ePolicy )
+{
+    if ( TaskStatus::DISPOSED == meStatus )
+        return;
+    meStatus = TaskStatus::DISPOSED;
+    if ( !mpSchedulerData )
+        return;
+    const ImplSVData *pSVData = ImplGetSVData();
+    if ( pSVData->mbDeInit )
+    {
+        mpSchedulerData = nullptr;
+        return;
+    }
+
+    const ImplSchedulerContext &rSchedCtx = pSVData->maSchedCtx;
+    do {
+        rSchedCtx.mpInvokeMutex->acquire();
+        sal_Int32 nCount = ( mpSchedulerData->mbInScheduler
+            && DisposePolicy::WAIT_INVOKE == ePolicy ) ? 1 : 0;
+        osl_resetCondition( rSchedCtx.maInvokeCondition );
+        rSchedCtx.mpInvokeMutex->release();
+        if ( 0 == nCount )
+            break;
+        osl_waitCondition( rSchedCtx.maInvokeCondition, nullptr );
+    }
+    while ( true );
+
+    SAL_INFO( "vcl.schedule", tools::Time::GetSystemTicks()
+        << " " << mpSchedulerData << "  disposed   " << *this );
+    if ( mpSchedulerData )
+    {
+        if ( !pSVData->mbDeInit )
+            mpSchedulerData->mpTask = nullptr;
+        mpSchedulerData = nullptr;
+    }
 }
 
 Task& Task::operator=( const Task& rTask )
@@ -402,7 +480,7 @@ Task& Task::operator=( const Task& rTask )
     if ( IsActive() )
         Stop();
 
-    mbActive = false;
+    meStatus = TaskStatus::STOPPED;
     mePriority = rTask.mePriority;
 
     if ( rTask.IsActive() )
@@ -411,11 +489,22 @@ Task& Task::operator=( const Task& rTask )
     return *this;
 }
 
+bool Task::IsActive() const
+{
+    ImplSVData *pSVData = ImplGetSVData();
+    assert( TaskStatus::SCHEDULED != meStatus ||
+           (TaskStatus::SCHEDULED == meStatus && mpSchedulerData) );
+    return ( !pSVData->mbDeInit
+             && nullptr != mpSchedulerData
+             && this == mpSchedulerData->mpTask
+             && TaskStatus::SCHEDULED == meStatus );
+}
+
 Task::Task( const sal_Char *pDebugName )
     : mpSchedulerData( nullptr )
     , mpDebugName( pDebugName )
     , mePriority( TaskPriority::HIGH )
-    , mbActive( false )
+    , meStatus( TaskStatus::STOPPED )
 {
 }
 
@@ -423,7 +512,7 @@ Task::Task( const Task& rTask )
     : mpSchedulerData( nullptr )
     , mpDebugName( rTask.mpDebugName )
     , mePriority( rTask.mePriority )
-    , mbActive( false )
+    , meStatus( TaskStatus::STOPPED )
 {
     if ( rTask.IsActive() )
         Start();
@@ -431,8 +520,7 @@ Task::Task( const Task& rTask )
 
 Task::~Task()
 {
-    if ( mpSchedulerData )
-        mpSchedulerData->mpTask = nullptr;
+    Dispose();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

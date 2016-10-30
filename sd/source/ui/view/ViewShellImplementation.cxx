@@ -358,6 +358,8 @@ IMPL_LINK_NOARG(ViewShell::Implementation::ToolBarManagerLock, TimeoutCallback, 
     }
     else
     {
+        // deleting ourself, so explicitly dispose, ignoring bInScheduler state!
+        maTimer.Dispose( DisposePolicy::IGNORE_INVOKE );
         mpSelf.reset();
     }
 }

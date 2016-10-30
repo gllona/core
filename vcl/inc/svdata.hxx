@@ -93,6 +93,13 @@ namespace vcl
     class Window;
 }
 
+namespace osl
+{
+    class Mutex;
+}
+
+typedef void* oslCondition;
+
 class LocaleConfigurationListener : public utl::ConfigurationListener
 {
 public:
@@ -317,6 +324,8 @@ struct ImplSchedulerContext
     SalTimer*               mpSalTimer = nullptr;           ///< interface to sal event loop / system timer
     sal_uInt64              mnTimerStart = 0;               ///< start time of the timer
     sal_uInt64              mnTimerPeriod = SAL_MAX_UINT64; ///< current timer period
+    osl::Mutex*             mpInvokeMutex = nullptr;        ///< protect mbInScheduler
+    oslCondition            maInvokeCondition = nullptr;    ///< notify sleeping tasks when invoke finished
 };
 
 struct ImplSVData

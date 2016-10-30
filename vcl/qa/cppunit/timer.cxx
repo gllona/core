@@ -71,6 +71,7 @@ public:
     void testInvokedReStart();
     void testPriority();
     void testRoundRobin();
+    void testInvokedDisposed();
 
     CPPUNIT_TEST_SUITE(TimerTest);
     CPPUNIT_TEST(testIdle);
@@ -90,6 +91,7 @@ public:
     CPPUNIT_TEST(testInvokedReStart);
     CPPUNIT_TEST(testPriority);
     CPPUNIT_TEST(testRoundRobin);
+    CPPUNIT_TEST(testInvokedDisposed);
 
     CPPUNIT_TEST_SUITE_END();
 };
@@ -527,6 +529,30 @@ void TimerTest::testRoundRobin()
         CPPUNIT_ASSERT( nCount2 <= 3 );
     }
     CPPUNIT_ASSERT( 3 == nCount1 && 3 == nCount2 );
+}
+
+class InvokedDisposedIdle : public Idle
+{
+public:
+    InvokedDisposedIdle() : Idle()
+    {
+        Start();
+    }
+
+    virtual void Invoke() override
+    {
+        // Invoked event is blocked, so nothing to do
+        CPPUNIT_ASSERT( !Application::Reschedule() );
+        // Without explicit Dispose() => deadlock
+        Dispose( DisposePolicy::IGNORE_INVOKE );
+        delete this;
+    }
+};
+
+void TimerTest::testInvokedDisposed()
+{
+    new InvokedDisposedIdle();
+    Scheduler::ProcessEventsToIdle();
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(TimerTest);

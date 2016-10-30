@@ -468,7 +468,9 @@ IMPL_LINK( HelpTextWindow, TimerHdl, Timer*, pTimer, void)
     else
     {
         SAL_WARN_IF( pTimer != &maHideTimer, "vcl", "HelpTextWindow::TimerHdl with bad Timer" );
-          ImplDestroyHelpWindow( true );
+        // deleting ourself, so explicitly dispose, ignoring bInScheduler state!
+        maHideTimer.Dispose( DisposePolicy::IGNORE_INVOKE );
+        ImplDestroyHelpWindow( true );
     }
 }
 
