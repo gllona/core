@@ -80,10 +80,6 @@ public:
     long*                   mpDitherDiff;           // Dither mapping table
     BYTE*                   mpDitherLow;            // Dither mapping table
     BYTE*                   mpDitherHigh;           // Dither mapping table
-    sal_uLong               mnTimerMS;              // Current Time (in MS) of the Timer
-    sal_uLong               mnTimerOrgMS;           // Current Original Time (in MS)
-    DWORD                   mnNextTimerTime;
-    DWORD                   mnLastEventTime;
     HANDLE                  mnTimerId;              ///< Windows timer id
     HHOOK                   mhSalObjMsgHook;        // hook to get interesting msg for SalObject
     HWND                    mhWantLeaveMsg;         // window handle, that want a MOUSELEAVE message
@@ -206,7 +202,7 @@ int ImplSalWICompareAscii( const wchar_t* pStr1, const char* pStr2 );
 // wParam == bWait; lParam == 0
 #define SAL_MSG_THREADYIELD         (WM_USER+111)
 // wParam == 0; lParam == nMS
-#define SAL_MSG_STARTTIMER          (WM_USER+113)
+#define SAL_MSG_DEFERREDSTARTTIMER  (WM_USER+113)
 // wParam == nFrameStyle; lParam == pParent; lResult == pFrame
 #define SAL_MSG_CREATEFRAME         (WM_USER+114)
 // wParam == 0; lParam == 0
@@ -258,8 +254,6 @@ int ImplSalWICompareAscii( const wchar_t* pStr1, const char* pStr2 );
 #define SAL_MSG_SETINPUTCONTEXT     (WM_USER+144)
 // wParam == nFlags; lParam == 0
 #define SAL_MSG_ENDEXTTEXTINPUT     (WM_USER+145)
-// DEFERREDTIMER-Message; wparam = 0, lParam == time
-#define SAL_MSG_DEFERREDTIMER       (WM_USER+146)
 
 // SysChild-ToTop; wParam = 0; lParam = 0
 #define SALOBJ_MSG_TOTOP            (WM_USER+160)
@@ -269,7 +263,7 @@ int ImplSalWICompareAscii( const wchar_t* pStr1, const char* pStr2 );
 // Call the Timer's callback from the main thread
 #define SAL_MSG_TIMER_CALLBACK      (WM_USER+162)
 // Stop the timer from the main thread; wParam = 0, lParam = 0
-#define SAL_MSG_STOPTIMER           (WM_USER+163)
+#define SAL_MSG_DEFERREDSTOPTIMER   (WM_USER+163)
 
 inline void SetWindowPtr( HWND hWnd, WinSalFrame* pThis )
 {
