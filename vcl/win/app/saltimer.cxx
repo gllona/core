@@ -163,15 +163,9 @@ void EmitTimerCallback()
     if ( nullptr == pSalData->mnTimerId )
         return;
 
-    // Try to acquire the mutex. If we don't get the mutex then we
-    // try this a short time later again.
-    if (ImplSalYieldMutexTryToAcquire())
-    {
-        pSVData->mpSalTimer->CallCallback();
-        ImplSalYieldMutexRelease();
-    }
-    else
-        ImplSalStartTimer( 10 );
+    ImplSalYieldMutexAcquireWithWait();
+    pSVData->mpSalTimer->CallCallback();
+    ImplSalYieldMutexRelease();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */
