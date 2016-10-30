@@ -864,6 +864,8 @@ IMPL_LINK_NOARG(SdDrawDocument, OnlineSpellingHdl, Idle *, void)
         // Initial spelling has finished
         mbInitialOnlineSpellingEnabled = false;
 
+        // deleting ourself, so explicitly dispose, ignoring bInScheduler state!
+        mpOnlineSpellingIdle->Dispose( DisposePolicy::IGNORE_INVOKE );
         // Stop search
         StopOnlineSpelling();
 

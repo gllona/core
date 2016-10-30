@@ -24,6 +24,7 @@
 #include <svdata.hxx>
 #include <salinst.hxx>
 #include <osl/mutex.hxx>
+#include <osl/conditn.h>
 
 
 /**
@@ -61,26 +62,66 @@ void ImplSchedulerData::Invoke()
 {
     DBG_TESTSOLARMUTEX();
 
-    assert( mpScheduler && !mbInScheduler );
-    if ( !mpScheduler || mbInScheduler )
+    if ( mbInScheduler )
+    {
+        assert( mbInScheduler && !mpScheduler );
         return;
+    }
 
-    Scheduler *sched = mpScheduler;
+    ImplSVData *pSVData = ImplGetSVData();
+    Scheduler *sched;
+    {
+        osl::MutexGuard aImplGuard( pSVData->mpInvokeMutex );
+        if ( !mpScheduler )
+            return;
+        mbInScheduler = true;
+        // SetDeletionFlags will set mpScheduler == nullptr for single-shot tasks
+        sched = mpScheduler;
+    }
 
-    // prepare Scheduler Object for deletion after handling
-    mpScheduler->SetDeletionFlags();
+    sched->SetDeletionFlags();
 
-    // invoke it
-    mbInScheduler = true;
     sched->Invoke();
+    // Invoke() can delete the sched(uler) object, so it might be invalid now;
+    // e.g. see SfxItemDisruptor_Impl::Delete
+
     mbInScheduler = false;
+
+    // notify all waiting / nested threads to check their mbInScheduler
+    osl_setCondition( pSVData->maInvokeCondition );
+}
+
+bool Scheduler::IsActive() const
+{
+    ImplSVData *pSVData = ImplGetSVData();
+    return ( !pSVData->mbDeInit && nullptr != mpSchedulerData &&
+             this == mpSchedulerData->mpScheduler );
+}
+
+void Scheduler::SetPriority( SchedulerPriority ePriority )
+{
+    assert( SchedulerPriority::DISPOSED != ePriority );
+    assert( SchedulerPriority::DISPOSED != mePriority );
+    if ( SchedulerPriority::DISPOSED != mePriority &&
+         SchedulerPriority::DISPOSED != ePriority )
+    {
+        mePriority = ePriority;
+        if ( IsActive() )
+            ImplGetSVData()->mbNeedsReschedule = true;
+    }
 }
 
 void Scheduler::SetDeletionFlags()
 {
     assert( mpSchedulerData );
-    mpSchedulerData->mpScheduler = nullptr;
-    mpSchedulerData = nullptr;
+    ImplSVData *pSVData = ImplGetSVData();
+    if ( !pSVData->mbDeInit )
+    {
+        osl::MutexGuard aImplGuard( pSVData->mpInvokeMutex );
+        mpSchedulerData->mpScheduler = nullptr;
+    }
+    else
+        mpSchedulerData->mpScheduler = nullptr;
 }
 
 bool Scheduler::ImplInitScheduler()
@@ -93,6 +134,14 @@ bool Scheduler::ImplInitScheduler()
 
     pSVData->mpAppendMutex = new ::osl::Mutex();
     if ( nullptr == pSVData->mpAppendMutex )
+        return false;
+
+    pSVData->mpInvokeMutex = new ::osl::Mutex();
+    if ( nullptr == pSVData->mpInvokeMutex )
+        return false;
+
+    pSVData->maInvokeCondition = osl_createCondition();
+    if ( nullptr == pSVData->maInvokeCondition )
         return false;
 
     return true;
@@ -109,13 +158,16 @@ void Scheduler::ImplDeInitScheduler()
     DELETEZ( pSVData->mpFreeListMutex );
     if ( pSVData->mpAppendMutex ) pSVData->mpAppendMutex->acquire();
     DELETEZ( pSVData->mpAppendMutex );
+    if ( pSVData->mpInvokeMutex ) pSVData->mpInvokeMutex->acquire();
+    DELETEZ( pSVData->mpInvokeMutex );
+
+    osl_destroyCondition( pSVData->maInvokeCondition );
+    pSVData->maInvokeCondition = nullptr;
 
     // Free active tasks
     ImplSchedulerData *pSchedulerData = pSVData->mpFirstSchedulerData;
     while ( pSchedulerData )
     {
-        if ( pSchedulerData->mpScheduler )
-            pSchedulerData->mpScheduler->mpSchedulerData = nullptr;
         ImplSchedulerData* pNextSchedulerData = pSchedulerData->mpNext;
         delete pSchedulerData;
         pSchedulerData = pNextSchedulerData;
@@ -407,35 +459,36 @@ next_entry:
 void Scheduler::Start()
 {
     ImplSVData *const pSVData = ImplGetSVData();
-    if (pSVData->mbDeInit)
+    if (pSVData->mbDeInit || SchedulerPriority::DISPOSED == mePriority)
         return;
 
     if ( mpSchedulerData && mpSchedulerData->mpNext )
-        Scheduler::SetDeletionFlags();
-    assert( !mpSchedulerData );
-    if ( !mpSchedulerData )
+        SetDeletionFlags();
+    if ( !IsActive() )
     {
         // Try fetching free Scheduler object from list
-        bool bNewObject = false;
+        ImplSchedulerData *pNewData = nullptr;
         {
             osl::MutexGuard aImplGuard( pSVData->mpFreeListMutex );
             if ( pSVData->mpFreeSchedulerData )
             {
-                mpSchedulerData = pSVData->mpFreeSchedulerData;
-                pSVData->mpFreeSchedulerData = mpSchedulerData->mpNext;
+                pNewData = pSVData->mpFreeSchedulerData;
+                pSVData->mpFreeSchedulerData = pNewData->mpNext;
             }
-            else
-                bNewObject = true;
         }
-        if ( bNewObject )
-            mpSchedulerData = new ImplSchedulerData;
-        mpSchedulerData->mpScheduler   = this;
-        mpSchedulerData->mbInScheduler = false;
-        mpSchedulerData->mpNext        = nullptr;
+        if ( !pNewData )
+            pNewData = new ImplSchedulerData;
+        pNewData->mpScheduler   = this;
+        pNewData->mbInScheduler = false;
+        pNewData->mpNext        = nullptr;
 
         // insert last due to SFX!
         {
             osl::MutexGuard aImplGuard( pSVData->mpAppendMutex );
+            if ( IsActive() )
+                SetDeletionFlags();
+
+            mpSchedulerData = pNewData;
             if ( pSVData->mpFirstSchedulerData == nullptr )
             {
                 assert( pSVData->mpLastSchedulerData == nullptr );
@@ -456,19 +509,65 @@ void Scheduler::Start()
         SAL_INFO( "vcl.schedule", tools::Time::GetSystemTicks()
             << " " << mpSchedulerData << "  restarted  " << *this );
 
-    assert( mpSchedulerData->mpScheduler == this );
-    mpSchedulerData->mnUpdateTime = tools::Time::GetSystemTicks();
-    pSVData->mbNeedsReschedule = true;
+    // Have we lost a race with an other caller?
+    if( mpSchedulerData->mpScheduler == this )
+    {
+        mpSchedulerData->mnUpdateTime = tools::Time::GetSystemTicks();
+        pSVData->mbNeedsReschedule = true;
+    }
 }
 
 void Scheduler::Stop()
 {
-    if ( !mpSchedulerData )
+    if ( !IsActive() )
         return;
     SAL_INFO( "vcl.schedule", tools::Time::GetSystemTicks()
-        << " " << mpSchedulerData << "  stopped    " << *this );
+              << " " << mpSchedulerData << "  stopped    " << *this );
     Scheduler::SetDeletionFlags();
-    assert( !mpSchedulerData );
+}
+
+void Scheduler::Dispose( DisposePolicy ePolicy )
+{
+    mePriority = SchedulerPriority::DISPOSED;
+    if ( !mpSchedulerData )
+        return;
+    const ImplSVData *pSVData = ImplGetSVData();
+    if ( pSVData->mbDeInit )
+    {
+        mpSchedulerData = nullptr;
+        return;
+    }
+    const bool bUseLocks = (DisposePolicy::WAIT_INVOKE == ePolicy);
+    if ( bUseLocks )
+    {
+        pSVData->mpInvokeMutex->acquire();
+        if ( mpSchedulerData->mbInScheduler )
+        {
+            // Don't free invoking events
+            while ( true )
+            {
+                pSVData->mpInvokeMutex->release();
+                osl_waitCondition( pSVData->maInvokeCondition, nullptr );
+                pSVData->mpInvokeMutex->acquire();
+                if ( !mpSchedulerData->mbInScheduler )
+                    break;
+                else
+                    osl_resetCondition( pSVData->maInvokeCondition );
+            }
+        }
+    }
+    if ( pSVData->mbDeInit )
+        return;
+
+    SAL_INFO( "vcl.schedule", tools::Time::GetSystemTicks()
+        << " " << mpSchedulerData << "  disposed   " << *this );
+    if ( mpSchedulerData )
+    {
+        mpSchedulerData->mpScheduler = nullptr;
+        mpSchedulerData = nullptr;
+    }
+    if ( bUseLocks )
+        pSVData->mpInvokeMutex->release();
 }
 
 Scheduler& Scheduler::operator=( const Scheduler& rScheduler )
@@ -502,8 +601,7 @@ Scheduler::Scheduler( const Scheduler& rScheduler ):
 
 Scheduler::~Scheduler()
 {
-    if ( mpSchedulerData )
-        mpSchedulerData->mpScheduler = nullptr;
+    Dispose();
 }
 
 const char *ImplSchedulerData::GetDebugName() const

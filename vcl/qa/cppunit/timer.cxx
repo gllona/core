@@ -66,6 +66,7 @@ public:
 #endif
     void testRecursiveTimer();
     void testSlowTimerCallback();
+    void testInvokedDisposed();
 
     CPPUNIT_TEST_SUITE(TimerTest);
     CPPUNIT_TEST(testIdle);
@@ -80,6 +81,7 @@ public:
 #endif
     CPPUNIT_TEST(testRecursiveTimer);
     CPPUNIT_TEST(testSlowTimerCallback);
+    CPPUNIT_TEST(testInvokedDisposed);
 
     CPPUNIT_TEST_SUITE_END();
 };
@@ -352,6 +354,31 @@ void TimerTest::testSlowTimerCallback()
     // coverity[loop_top] - Application::Yield allows the timer to fire and increment nCount
     while (nCount < 200)
         Application::Yield();
+}
+
+
+class InvokedDisposedIdle : public Idle
+{
+public:
+    InvokedDisposedIdle() : Idle()
+    {
+        Start();
+    }
+
+    virtual void Invoke() override
+    {
+        // Invoked event is blocked, so nothing to do
+        CPPUNIT_ASSERT( !Scheduler::ProcessTaskScheduling( IdleRunPolicy::IDLE_VIA_LOOP ) );
+        // Without explicit Dispose() => deadlock
+        Dispose( DisposePolicy::IGNORE_INVOKE );
+        delete this;
+    }
+};
+
+void TimerTest::testInvokedDisposed()
+{
+    new InvokedDisposedIdle();
+    Scheduler::ProcessAllPendingEvents();
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(TimerTest);

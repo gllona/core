@@ -99,15 +99,15 @@ namespace osl
     class Mutex;
 }
 
+typedef std::vector<Link<VclWindowEvent&,bool> > SVAppKeyListeners;
+typedef std::pair<VclPtr<vcl::Window>, ImplPostEventData *> ImplPostEventPair;
+typedef void* oslCondition;
+
 class LocaleConfigurationListener : public utl::ConfigurationListener
 {
 public:
     virtual void ConfigurationChanged( utl::ConfigurationBroadcaster*, sal_uInt32 ) override;
 };
-
-typedef std::vector<Link<VclWindowEvent&,bool> > SVAppKeyListeners;
-
-typedef std::pair<VclPtr<vcl::Window>, ImplPostEventData *> ImplPostEventPair;
 
 struct ImplSVAppData
 {
@@ -332,6 +332,8 @@ struct ImplSVData
     SalTimer*               mpSalTimer = nullptr;           // interface to sal event loop/timers
     osl::Mutex*             mpAppendMutex = nullptr;
     osl::Mutex*             mpFreeListMutex = nullptr;
+    osl::Mutex*             mpInvokeMutex = nullptr;
+    oslCondition            maInvokeCondition = nullptr;
 
     SalI18NImeStatus*       mpImeStatus = nullptr;          // interface to ime status window
     SalSystem*              mpSalSystem = nullptr;          // SalSystem interface

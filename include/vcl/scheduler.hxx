@@ -35,13 +35,20 @@ enum class SchedulerPriority
     REPAINT,       ///< All repaint events should go in here
     POST_PAINT,    ///< Everything running directly after painting
     DEFAULT_IDLE,  ///< Default idle priority
-    LOWEST         ///< Low, very idle cleanup tasks
+    LOWEST,        ///< Low, very idle cleanup tasks
+    DISPOSED       ///< Internal priority for desposed tasks
 };
 
 enum class IdleRunPolicy
 {
     IDLE_VIA_TIMER,  ///< Idles are scheduled via immediate timers (ImmediateTimeoutMs)
     IDLE_VIA_LOOP    ///< Return indicates processed events, so they are processed in a loop
+};
+
+enum class DisposePolicy
+{
+    WAIT_INVOKE,   ///< Wait for Invoke() to finish, if invoked
+    IGNORE_INVOKE  ///< Dispose object ignoring Invoke() state (for self-deleting objects)
 };
 
 class VCL_DLLPUBLIC Scheduler
@@ -75,7 +82,7 @@ public:
     virtual ~Scheduler();
     Scheduler& operator=( const Scheduler& rScheduler );
 
-    void SetPriority(SchedulerPriority ePriority) { mePriority = ePriority; }
+    void SetPriority(SchedulerPriority ePriority);
     SchedulerPriority GetPriority() const { return mePriority; }
 
     void            SetDebugName( const sal_Char *pDebugName ) { mpDebugName = pDebugName; }
@@ -86,8 +93,25 @@ public:
 
     virtual void    Start();
     void            Stop();
+    /**
+     * Dispose will clean up the Scheduler object
+     *
+     * It'll wait until the object is no longer invoked.
+     *
+     * Also call Dispose(), if Invoke() depends on any resources you're going
+     * to destroy.
+     *
+     * If you have a self-deleting object, i.e. an object composed or inherited
+     * from Scheduler, which you delete inside it's Invoke() function, you must
+     * explicitly Dispose() the invoked Scheduler object using the
+     * DisposePolicy::IGNORE_INVOKE policy, otherwise the Schedulers destructor
+     * will deadlock waiting for Invoke() to finish!
+     *
+     * @param ePolicy Optionally ignore the Schedulers Invoke() state.
+     */
+    void            Dispose( DisposePolicy ePolicy = DisposePolicy::WAIT_INVOKE );
 
-    inline bool     IsActive() const;
+    bool            IsActive() const;
 
     static bool     ImplInitScheduler();
     static void     ImplDeInitScheduler();
@@ -108,11 +132,6 @@ public:
     /// Return the current state of deterministic mode.
     static bool GetDeterministicMode();
 };
-
-inline bool Scheduler::IsActive() const
-{
-    return nullptr != mpSchedulerData;
-}
 
 template< typename charT, typename traits >
 inline std::basic_ostream<charT, traits> & operator <<(

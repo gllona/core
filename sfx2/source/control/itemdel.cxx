@@ -68,6 +68,8 @@ SfxItemDisruptor_Impl::~SfxItemDisruptor_Impl()
 
 IMPL_LINK_NOARG(SfxItemDisruptor_Impl, Delete, Idle*, void)
 {
+    // deleting ourself, so explicitly dispose, ignoring bInScheduler state!
+    m_Idle.Dispose( DisposePolicy::IGNORE_INVOKE );
     delete this;
 }
 
