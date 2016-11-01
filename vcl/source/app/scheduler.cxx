@@ -127,6 +127,7 @@ void Scheduler::SetDeletionFlags()
 bool Scheduler::ImplInitScheduler()
 {
     ImplSVData *pSVData = ImplGetSVData();
+    assert( !pSVData->mbDeInit );
 
     pSVData->mpFreeListMutex = new ::osl::Mutex();
     if ( nullptr == pSVData->mpFreeListMutex )
@@ -150,6 +151,7 @@ bool Scheduler::ImplInitScheduler()
 void Scheduler::ImplDeInitScheduler()
 {
     ImplSVData *pSVData = ImplGetSVData();
+    assert( pSVData->mbDeInit );
 
     if (pSVData->mpSalTimer) pSVData->mpSalTimer->Stop();
     DELETEZ( pSVData->mpSalTimer );
