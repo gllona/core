@@ -64,6 +64,7 @@ public:
     void testAutoTimer();
     void testMultiAutoTimers();
 #endif
+    void testAutoTimerStop();
     void testRecursiveTimer();
     void testSlowTimerCallback();
     void testInvokedDisposed();
@@ -79,6 +80,7 @@ public:
     CPPUNIT_TEST(testAutoTimer);
     CPPUNIT_TEST(testMultiAutoTimers);
 #endif
+    CPPUNIT_TEST(testAutoTimerStop);
     CPPUNIT_TEST(testRecursiveTimer);
     CPPUNIT_TEST(testSlowTimerCallback);
     CPPUNIT_TEST(testInvokedDisposed);
@@ -181,17 +183,23 @@ void TimerTest::testDurations()
 class AutoTimerCount : public AutoTimer
 {
     sal_Int32 &mrCount;
+    const sal_Int32 mnMaxCount;
+
 public:
-    AutoTimerCount( sal_uLong nMS, sal_Int32 &rCount ) :
-        AutoTimer(), mrCount( rCount )
+    AutoTimerCount( sal_uLong nMS, sal_Int32 &rCount,
+                    const sal_Int32 nMaxCount = -1 )
+        : AutoTimer(), mrCount( rCount ), mnMaxCount( nMaxCount )
     {
         SetTimeout( nMS );
         Start();
         mrCount = 0;
     }
+
     virtual void Invoke() override
     {
-        mrCount++;
+        ++mrCount;
+        if ( mrCount == mnMaxCount )
+            Stop();
     }
 };
 
@@ -296,6 +304,17 @@ void TimerTest::testMultiAutoTimers()
     CPPUNIT_FAIL(msg.str().c_str());
 }
 #endif // TEST_TIMERPRECISION
+
+void TimerTest::testAutoTimerStop()
+{
+    sal_Int32 nProcessCount = 0, nTimerCount = 0;
+    const sal_Int32 nMaxCount = 100;
+    AutoTimerCount aAutoTimer( 0, nTimerCount, nMaxCount );
+    while ( Scheduler::ProcessTaskScheduling( IdleRunPolicy::IDLE_VIA_LOOP ) )
+        ++nProcessCount;
+    CPPUNIT_ASSERT_EQUAL( nProcessCount, nMaxCount );
+    CPPUNIT_ASSERT_EQUAL( nTimerCount, nMaxCount );
+}
 
 
 class YieldTimer : public Timer
