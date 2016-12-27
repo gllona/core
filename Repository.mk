@@ -94,6 +94,9 @@ $(eval $(call gb_Helper_register_executables_for_install,SDK,sdk, \
 $(eval $(call gb_Helper_register_executables_for_install,OOO,brand, \
 	$(if $(ENABLE_ONLINE_UPDATE_MAR),\
 		mar \
+		$(if $(filter WNT,$(OS)), \
+			update_service \
+		) \
 		updater )\
 	$(call gb_Helper_optional,BREAKPAD,minidump_upload) \
 	$(if $(filter-out ANDROID IOS MACOSX WNT,$(OS)),oosplash) \
