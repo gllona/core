@@ -24,11 +24,18 @@
 #include <iostream>
 
 class Task;
+struct ImplSVData;
+struct ImplSchedulerData;
 
 class VCL_DLLPUBLIC Scheduler
 {
     friend class Task;
     Scheduler() = delete;
+
+    static inline bool HasPendingTasks( const ImplSVData* pSVData, sal_uInt64 nTime );
+
+    static inline void UpdateMinPeriod( ImplSchedulerData *pSchedulerData,
+                                        sal_uInt64 nTime, sal_uInt64 &nMinPeriod );
 
 protected:
     static void ImplStartTimer ( sal_uInt64 nMS, bool bForce = false );
@@ -41,8 +48,8 @@ public:
 
     /// Process one pending Timer with highhest priority
     static void       CallbackTaskScheduling( bool ignore );
-    /// Calculate minimum timeout - and return its value.
-    static sal_uInt64 CalculateMinimumTimeout( bool &bHasActiveIdles );
+    /// Are there any pending tasks to process?
+    static bool       HasPendingTasks();
     /// Process one pending task ahead of time with highest priority.
     static bool       ProcessTaskScheduling( bool bIdle );
     /// Process all events until we are idle
@@ -90,8 +97,6 @@ protected:
     virtual void SetDeletionFlags();
     /// Is this item ready to be dispatched at nTimeNow
     virtual bool ReadyForSchedule( bool bIdle, sal_uInt64 nTimeNow ) const = 0;
-    /// Schedule only when other timers and events are processed
-    virtual bool IsIdle() const = 0;
     /**
      * Adjust nMinPeriod downwards if we want to be notified before
      * then, nTimeNow is the current time.

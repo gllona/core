@@ -320,6 +320,8 @@ struct ImplSVData
     SalSystem*              mpSalSystem = nullptr;          // SalSystem interface
     ResMgr*                 mpResMgr = nullptr;             // SV-Resource-Manager
     sal_uInt64              mnTimerPeriod = 0;              // current timer period
+    sal_uInt64              mnLastProcessTime = 0;          // last time a task was processed
+    bool                    mbNeedsReschedule = false;      // we need to reschedule
     ImplSVAppData           maAppData;                      // indepen data for class Application
     ImplSVGDIData           maGDIData;                      // indepen data for Output classes
     ImplSVWinData           maWinData;                      // indepen data for Windows classes

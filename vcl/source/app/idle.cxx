@@ -18,6 +18,7 @@
  */
 
 #include <vcl/idle.hxx>
+#include <svdata.hxx>
 #include "saltimer.hxx"
 
 Idle::Idle( bool bAuto, const sal_Char *pDebugName )
@@ -56,17 +57,13 @@ void Idle::Start()
 bool Idle::ReadyForSchedule( bool bIdle, sal_uInt64 /* nTimeNow */ ) const
 {
     // always ready if not only looking for timers.
+    ImplSVData *pSVData = ImplGetSVData();
+    pSVData->mbNeedsReschedule = true;
     return bIdle;
-}
-
-bool Idle::IsIdle() const
-{
-    return true;
 }
 
 sal_uInt64 Idle::UpdateMinPeriod( sal_uInt64 /* nMinPeriod */, sal_uInt64 /* nTimeNow */ ) const
 {
-    assert(false); // idles currently don't hit this.
     return Scheduler::ImmediateTimeoutMs;
 }
 
