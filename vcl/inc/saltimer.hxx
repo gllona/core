@@ -66,8 +66,6 @@ struct ImplSchedulerData
     bool                mbInScheduler; // Task currently processed?
     sal_uInt64          mnUpdateTime;  // Last Update Time
 
-    void Invoke();
-
     const char *GetDebugName() const;
 };
 
