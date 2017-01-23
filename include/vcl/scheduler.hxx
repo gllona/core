@@ -21,6 +21,7 @@
 #define INCLUDED_VCL_SCHEDULER_HXX
 
 #include <vcl/dllapi.h>
+#include <iostream>
 
 class Task;
 
@@ -117,6 +118,18 @@ public:
 
     bool            IsActive() const { return mbActive; }
 };
+
+template< typename charT, typename traits >
+inline std::basic_ostream<charT, traits> & operator <<(
+    std::basic_ostream<charT, traits> & stream, const Task& task )
+{
+    stream << "a: " << task.IsActive() << " p: " << (int) task.GetPriority();
+    const sal_Char *name = task.GetDebugName();
+    if( nullptr == name )
+        return stream << " (nullptr)";
+    else
+        return stream << " " << name;
+}
 
 #endif // INCLUDED_VCL_SCHEDULER_HXX
 
