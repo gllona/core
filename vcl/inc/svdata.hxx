@@ -322,8 +322,8 @@ struct ImplSVData
     SalI18NImeStatus*       mpImeStatus = nullptr;          // interface to ime status window
     SalSystem*              mpSalSystem = nullptr;          // SalSystem interface
     ResMgr*                 mpResMgr = nullptr;             // SV-Resource-Manager
-    sal_uInt64              mnTimerPeriod = 0;              // current timer period
-    sal_uInt64              mnLastProcessTime = 0;          // last time a task was processed
+    sal_uInt64              mnTimerStart = 0;               // start time of the timer
+    sal_uInt64              mnTimerPeriod = SAL_MAX_UINT64; // current timer period
     bool                    mbNeedsReschedule = false;      // we need to reschedule
     ImplSVAppData           maAppData;                      // indepen data for class Application
     ImplSVGDIData           maGDIData;                      // indepen data for Output classes

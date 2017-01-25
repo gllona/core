@@ -38,7 +38,7 @@ class VCL_DLLPUBLIC Scheduler
                                         sal_uInt64 nTime, sal_uInt64 &nMinPeriod );
 
 protected:
-    static void ImplStartTimer ( sal_uInt64 nMS, bool bForce = false );
+    static void ImplStartTimer ( sal_uInt64 nMS, bool bForce, sal_uInt64 nTime );
 
 public:
     static const SAL_CONSTEXPR sal_uInt64 ImmediateTimeoutMs = 1;

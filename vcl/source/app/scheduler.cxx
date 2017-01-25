@@ -83,10 +83,10 @@ void Scheduler::ImplDeInitScheduler()
 
     delete pSVData->mpSalTimer;
     pSVData->mpSalTimer = nullptr;
+    pSVData->mnTimerPeriod = InfiniteTimeoutMs;
 
     pSVData->mpFirstSchedulerData = nullptr;
     pSVData->mpLastSchedulerData  = nullptr;
-    pSVData->mnTimerPeriod        = 0;
 }
 
 /**
@@ -96,7 +96,7 @@ void Scheduler::ImplDeInitScheduler()
  * waiting for, do nothing - unless bForce - which means
  * to reset the minimum period; used by the scheduled itself.
  */
-void Scheduler::ImplStartTimer(sal_uInt64 nMS, bool bForce)
+void Scheduler::ImplStartTimer(sal_uInt64 nMS, bool bForce, sal_uInt64 nTime)
 {
     ImplSVData* pSVData = ImplGetSVData();
     if (pSVData->mbDeInit)
@@ -110,19 +110,29 @@ void Scheduler::ImplStartTimer(sal_uInt64 nMS, bool bForce)
 
     if (!pSVData->mpSalTimer)
     {
+        pSVData->mnTimerStart = 0;
         pSVData->mnTimerPeriod = InfiniteTimeoutMs;
         pSVData->mpSalTimer = pSVData->mpDefInst->CreateSalTimer();
         pSVData->mpSalTimer->SetCallback(Scheduler::CallbackTaskScheduling);
     }
 
-    if ( !nMS )
-        nMS = 1;
+    if ( nMS > InfiniteTimeoutMs )
+        nMS = InfiniteTimeoutMs;
+    if ( nMS < ImmediateTimeoutMs )
+        nMS = ImmediateTimeoutMs;
+    assert(SAL_MAX_UINT64 - nMS >= nTime);
+
+    sal_uInt64 nProposedTimeout = nTime + nMS;
+    sal_uInt64 nCurTimeout = ( pSVData->mnTimerPeriod == InfiniteTimeoutMs )
+        ? SAL_MAX_UINT64 : pSVData->mnTimerStart + pSVData->mnTimerPeriod;
 
     // Only if smaller timeout, to avoid skipping.
-    if (bForce || nMS < pSVData->mnTimerPeriod)
+    if (bForce || nProposedTimeout < nCurTimeout)
     {
+        SAL_INFO( "vcl.schedule", "  Starting scheduler system timer (" << nMS << "ms)" );
+        pSVData->mnTimerStart = nTime;
         pSVData->mnTimerPeriod = nMS;
-        pSVData->mpSalTimer->Start(nMS);
+        pSVData->mpSalTimer->Start( nMS );
     }
 }
 
@@ -147,7 +157,7 @@ bool Scheduler::GetDeterministicMode()
 inline bool Scheduler::HasPendingTasks( const ImplSVData* pSVData, const sal_uInt64 nTime )
 {
     return ( pSVData->mbNeedsReschedule || ((pSVData->mnTimerPeriod != InfiniteTimeoutMs)
-        && (nTime >= pSVData->mnLastProcessTime + pSVData->mnTimerPeriod )) );
+        && (nTime >= pSVData->mnTimerStart + pSVData->mnTimerPeriod )) );
 }
 
 bool Scheduler::HasPendingTasks()
@@ -177,7 +187,6 @@ bool Scheduler::ProcessTaskScheduling()
     if ( pSVData->mbDeInit || !HasPendingTasks( pSVData, nTime ) )
         return false;
     pSVData->mbNeedsReschedule = false;
-    pSVData->mnLastProcessTime = nTime;
 
     ImplSchedulerData* pSchedulerData = nullptr;
     ImplSchedulerData* pPrevSchedulerData = nullptr;
@@ -240,22 +249,18 @@ next_entry:
     }
 
     // delete clock if no more timers available,
-    if ( !pSVData->mpFirstSchedulerData )
+    if ( InfiniteTimeoutMs == nMinPeriod )
     {
         if ( pSVData->mpSalTimer )
             pSVData->mpSalTimer->Stop();
-        if ( ImmediateTimeoutMs == nMinPeriod )
-            SAL_INFO("vcl.schedule", "Unusual - no more tasks available - stop timer");
-        else
-            SAL_INFO("vcl.schedule", "Idles available - handle immediate");
+        SAL_INFO("vcl.schedule", "  Stopping system timer");
+        pSVData->mnTimerPeriod = nMinPeriod;
     }
     else
     {
-        Scheduler::ImplStartTimer( nMinPeriod, true );
+        Scheduler::ImplStartTimer( nMinPeriod, true, nTime );
         SAL_INFO("vcl.schedule", "Calculated minimum timeout as " << nMinPeriod );
     }
-
-    pSVData->mnTimerPeriod = nMinPeriod;
 
     if ( pMostUrgent )
     {
@@ -287,7 +292,7 @@ const char *ImplSchedulerData::GetDebugName() const
 
 void Task::StartTimer( sal_uInt64 nMS )
 {
-    Scheduler::ImplStartTimer( nMS, false );
+    Scheduler::ImplStartTimer( nMS, false, tools::Time::GetSystemTicks() );
 }
 
 void Task::SetDeletionFlags()
