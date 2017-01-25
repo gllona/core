@@ -318,6 +318,7 @@ struct ImplSVData
     bool                    mbDeInit = false;               // Is VCL deinitializing
     ImplSchedulerData*      mpFirstSchedulerData = nullptr; // list of all running tasks
     ImplSchedulerData*      mpLastSchedulerData = nullptr;  // last item of the mpFirstSchedulerData list
+    ImplSchedulerData*      mpSchedulerStack = nullptr;     // stack of invoked tasks
     SalTimer*               mpSalTimer = nullptr;           // interface to sal event loop/timers
     SalI18NImeStatus*       mpImeStatus = nullptr;          // interface to ime status window
     SalSystem*              mpSalSystem = nullptr;          // SalSystem interface

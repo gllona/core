@@ -167,7 +167,7 @@ bool Scheduler::HasPendingTasks()
     return HasPendingTasks( pSVData, nTime );
 }
 
-inline void Scheduler::UpdateMinPeriod( ImplSchedulerData *pSchedulerData,
+inline void Scheduler::UpdateMinPeriod( ImplSchedulerData * const pSchedulerData,
                                         const sal_uInt64 nTime, sal_uInt64 &nMinPeriod )
 {
     if ( nMinPeriod > ImmediateTimeoutMs )
@@ -178,6 +178,37 @@ inline void Scheduler::UpdateMinPeriod( ImplSchedulerData *pSchedulerData,
         if ( nCurPeriod < nMinPeriod )
             nMinPeriod = nCurPeriod;
     }
+}
+
+inline void Scheduler::UpdateSystemTimer( ImplSVData * const pSVData,
+                                          const sal_uInt64 nMinPeriod,
+                                          const bool bForce, const sal_uInt64 nTime )
+{
+    if ( InfiniteTimeoutMs == nMinPeriod )
+    {
+        if ( pSVData->mpSalTimer )
+            pSVData->mpSalTimer->Stop();
+        SAL_INFO("vcl.schedule", "  Stopping system timer");
+        pSVData->mnTimerPeriod = nMinPeriod;
+    }
+    else
+        Scheduler::ImplStartTimer( nMinPeriod, bForce, nTime );
+}
+
+static inline void AppendSchedulerData( ImplSVData * const pSVData,
+                                        ImplSchedulerData * const pSchedulerData )
+{
+    if ( !pSVData->mpLastSchedulerData )
+    {
+        pSVData->mpFirstSchedulerData = pSchedulerData;
+        pSVData->mpLastSchedulerData = pSchedulerData;
+    }
+    else
+    {
+        pSVData->mpLastSchedulerData->mpNext = pSchedulerData;
+        pSVData->mpLastSchedulerData = pSchedulerData;
+    }
+    pSchedulerData->mpNext = nullptr;
 }
 
 bool Scheduler::ProcessTaskScheduling()
@@ -210,23 +241,28 @@ bool Scheduler::ProcessTaskScheduling()
             SAL_INFO( "vcl.schedule", tools::Time::GetSystemTicks() << " "
                 << pSchedulerData << " " << *pSchedulerData << " (to be deleted)" );
 
-        if ( pSchedulerData->mbInScheduler )
-            goto next_entry;
-
-        // Should Task be released from scheduling?
-        if ( pSchedulerData->mbDelete || !pSchedulerData->mpTask )
+        // Should the Task be released from scheduling or stacked?
+        if ( pSchedulerData->mbDelete || !pSchedulerData->mpTask || pSchedulerData->mbInScheduler )
         {
+            ImplSchedulerData * const pSchedulerDataNext = pSchedulerData->mpNext;
             if ( pPrevSchedulerData )
-                pPrevSchedulerData->mpNext = pSchedulerData->mpNext;
+                pPrevSchedulerData->mpNext = pSchedulerDataNext;
             else
-                pSVData->mpFirstSchedulerData = pSchedulerData->mpNext;
-            if ( !pSchedulerData->mpNext )
+                pSVData->mpFirstSchedulerData = pSchedulerDataNext;
+            if ( !pSchedulerDataNext )
                 pSVData->mpLastSchedulerData = pPrevSchedulerData;
-            if ( pSchedulerData->mpTask )
-                pSchedulerData->mpTask->mpSchedulerData = nullptr;
-            ImplSchedulerData *pDeleteItem = pSchedulerData;
-            pSchedulerData = pSchedulerData->mpNext;
-            delete pDeleteItem;
+            if ( pSchedulerData->mbInScheduler )
+            {
+                pSchedulerData->mpNext = pSVData->mpSchedulerStack;
+                pSVData->mpSchedulerStack = pSchedulerData;
+            }
+            else
+            {
+                if ( pSchedulerData->mpTask )
+                    pSchedulerData->mpTask->mpSchedulerData = nullptr;
+                delete pSchedulerData;
+            }
+            pSchedulerData = pSchedulerDataNext;
             continue;
         }
 
@@ -248,19 +284,9 @@ next_entry:
         pSchedulerData = pSchedulerData->mpNext;
     }
 
-    // delete clock if no more timers available,
-    if ( InfiniteTimeoutMs == nMinPeriod )
-    {
-        if ( pSVData->mpSalTimer )
-            pSVData->mpSalTimer->Stop();
-        SAL_INFO("vcl.schedule", "  Stopping system timer");
-        pSVData->mnTimerPeriod = nMinPeriod;
-    }
-    else
-    {
-        Scheduler::ImplStartTimer( nMinPeriod, true, nTime );
+    if ( InfiniteTimeoutMs != nMinPeriod )
         SAL_INFO("vcl.schedule", "Calculated minimum timeout as " << nMinPeriod );
-    }
+    UpdateSystemTimer( pSVData, nMinPeriod, true, nTime );
 
     if ( pMostUrgent )
     {
@@ -269,15 +295,28 @@ next_entry:
 
         Task *pTask = pMostUrgent->mpTask;
 
-        // prepare Scheduler Object for deletion after handling
+        // prepare Scheduler object for deletion after handling
         pTask->SetDeletionFlags();
 
-        // invoke it
+        // invoke the task
+        // defer pushing the scheduler stack to next run, as most tasks will
+        // not run a nested Scheduler loop and don't need a stack push!
         pMostUrgent->mbInScheduler = true;
         pTask->Invoke();
         pMostUrgent->mbInScheduler = false;
 
-        if ( pMostUrgent->mpTask && !pMostUrgent->mbDelete )
+        // eventually pop the scheduler stack
+        // this just happens for nested calls, which renders all accounting
+        // invalid, so we just enforce a rescheduling!
+        if ( pMostUrgent == pSVData->mpSchedulerStack )
+        {
+            pSchedulerData = pSVData->mpSchedulerStack;
+            pSVData->mpSchedulerStack = pSchedulerData->mpNext;
+            AppendSchedulerData( pSVData, pSchedulerData );
+            UpdateSystemTimer( pSVData, ImmediateTimeoutMs, true,
+                               tools::Time::GetSystemTicks() );
+        }
+        else if ( pMostUrgent->mpTask && !pMostUrgent->mbDelete )
             pMostUrgent->mnUpdateTime = tools::Time::GetSystemTicks();
     }
 
@@ -320,19 +359,8 @@ void Task::Start()
         mpSchedulerData                = new ImplSchedulerData;
         mpSchedulerData->mpTask        = this;
         mpSchedulerData->mbInScheduler = false;
-        mpSchedulerData->mpNext        = nullptr;
 
-        // insert last due to SFX!
-        if ( !pSVData->mpLastSchedulerData )
-        {
-            pSVData->mpFirstSchedulerData = mpSchedulerData;
-            pSVData->mpLastSchedulerData = mpSchedulerData;
-        }
-        else
-        {
-            pSVData->mpLastSchedulerData->mpNext = mpSchedulerData;
-            pSVData->mpLastSchedulerData = mpSchedulerData;
-        }
+        AppendSchedulerData( pSVData, mpSchedulerData );
         SAL_INFO( "vcl.schedule", tools::Time::GetSystemTicks()
                   << " " << mpSchedulerData << "  added      " << *this );
     }

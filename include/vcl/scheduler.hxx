@@ -37,6 +37,10 @@ class VCL_DLLPUBLIC Scheduler
     static inline void UpdateMinPeriod( ImplSchedulerData *pSchedulerData,
                                         sal_uInt64 nTime, sal_uInt64 &nMinPeriod );
 
+    static inline void UpdateSystemTimer( ImplSVData * const pSVData,
+                                          sal_uInt64 nMinPeriod,
+                                          bool bForce, sal_uInt64 nTime );
+
 protected:
     static void ImplStartTimer ( sal_uInt64 nMS, bool bForce, sal_uInt64 nTime );
 
