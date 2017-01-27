@@ -254,7 +254,8 @@ bool Scheduler::ProcessTaskScheduling()
                 << pSchedulerData << " " << *pSchedulerData << " (to be deleted)" );
 
         // Should the Task be released from scheduling or stacked?
-        if ( pSchedulerData->mbDelete || !pSchedulerData->mpTask || pSchedulerData->mbInScheduler )
+        if ( !pSchedulerData->mpTask || !pSchedulerData->mpTask->IsActive()
+            || pSchedulerData->mbInScheduler )
         {
             ImplSchedulerData * const pSchedulerDataNext =
                 DropSchedulerData( pSVData, pPrevSchedulerData, pSchedulerData );
@@ -335,7 +336,7 @@ next_entry:
                 AppendSchedulerData( pSVData, pMostUrgent );
             }
 
-            if ( pMostUrgent->mpTask && !pMostUrgent->mbDelete )
+            if ( pMostUrgent->mpTask && pMostUrgent->mpTask->IsActive() )
             {
                 pMostUrgent->mnUpdateTime = nTime;
                 UpdateMinPeriod( pMostUrgent, nTime, nMinPeriod );
@@ -360,7 +361,6 @@ void Task::StartTimer( sal_uInt64 nMS )
 
 void Task::SetDeletionFlags()
 {
-    mpSchedulerData->mbDelete = true;
     mbActive = false;
 }
 
@@ -392,8 +392,7 @@ void Task::Start()
         SAL_INFO( "vcl.schedule", tools::Time::GetSystemTicks()
                   << " " << mpSchedulerData << "  restarted  " << *this );
 
-    mpSchedulerData->mbDelete      = false;
-    mpSchedulerData->mnUpdateTime  = tools::Time::GetSystemTicks();
+    mpSchedulerData->mnUpdateTime = tools::Time::GetSystemTicks();
 }
 
 void Task::Stop()
@@ -401,8 +400,6 @@ void Task::Stop()
     SAL_INFO_IF( mbActive, "vcl.schedule", tools::Time::GetSystemTicks()
                   << " " << mpSchedulerData << "  stopped    " << *this );
     mbActive = false;
-    if ( mpSchedulerData )
-        mpSchedulerData->mbDelete = true;
 }
 
 Task& Task::operator=( const Task& rTask )
@@ -440,10 +437,7 @@ Task::Task( const Task& rTask )
 Task::~Task()
 {
     if ( mpSchedulerData )
-    {
-        mpSchedulerData->mbDelete = true;
         mpSchedulerData->mpTask = nullptr;
-    }
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

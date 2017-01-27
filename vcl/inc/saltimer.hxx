@@ -62,7 +62,6 @@ struct ImplSchedulerData
 {
     ImplSchedulerData  *mpNext;        // Pointer to the next element in list
     Task               *mpTask;        // Pointer to VCL Task instance
-    bool                mbDelete;      // Destroy this task?
     bool                mbInScheduler; // Task currently processed?
     sal_uInt64          mnUpdateTime;  // Last Update Time
 
@@ -73,8 +72,7 @@ template< typename charT, typename traits >
 inline std::basic_ostream<charT, traits> & operator <<(
     std::basic_ostream<charT, traits> & stream, const ImplSchedulerData& data )
 {
-    stream << " i: " << data.mbInScheduler
-           << " d: " << data.mbDelete;
+    stream << " i: " << data.mbInScheduler;
     return stream;
 }
 
