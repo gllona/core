@@ -152,8 +152,8 @@ bool Scheduler::GetDeterministicMode()
 
 inline bool Scheduler::HasPendingTasks( const ImplSVData* pSVData, const sal_uInt64 nTime )
 {
-    return ( pSVData->mbNeedsReschedule || ((pSVData->mnTimerPeriod != InfiniteTimeoutMs)
-        && (nTime >= pSVData->mnTimerStart + pSVData->mnTimerPeriod )) );
+    return ( pSVData->mnTimerPeriod != InfiniteTimeoutMs
+        && nTime >= pSVData->mnTimerStart + pSVData->mnTimerPeriod );
 }
 
 bool Scheduler::HasPendingTasks()
@@ -229,7 +229,6 @@ bool Scheduler::ProcessTaskScheduling()
     sal_uInt64  nTime = tools::Time::GetSystemTicks();
     if ( pSVData->mbDeInit || !HasPendingTasks( pSVData, nTime ) )
         return false;
-    pSVData->mbNeedsReschedule = false;
 
     ImplSchedulerData* pSchedulerData = nullptr;
     ImplSchedulerData* pPrevSchedulerData = nullptr;
@@ -395,7 +394,6 @@ void Task::Start()
 
     mpSchedulerData->mbDelete      = false;
     mpSchedulerData->mnUpdateTime  = tools::Time::GetSystemTicks();
-    pSVData->mbNeedsReschedule     = true;
 }
 
 void Task::Stop()

@@ -56,8 +56,6 @@ void Idle::Start()
 
 bool Idle::ReadyForSchedule( sal_uInt64 /* nTimeNow */ ) const
 {
-    ImplSVData *pSVData = ImplGetSVData();
-    pSVData->mbNeedsReschedule = true;
     return true;
 }
 

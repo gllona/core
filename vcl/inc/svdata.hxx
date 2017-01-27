@@ -325,7 +325,6 @@ struct ImplSVData
     ResMgr*                 mpResMgr = nullptr;             // SV-Resource-Manager
     sal_uInt64              mnTimerStart = 0;               // start time of the timer
     sal_uInt64              mnTimerPeriod = SAL_MAX_UINT64; // current timer period
-    bool                    mbNeedsReschedule = false;      // we need to reschedule
     ImplSVAppData           maAppData;                      // indepen data for class Application
     ImplSVGDIData           maGDIData;                      // indepen data for Output classes
     ImplSVWinData           maWinData;                      // indepen data for Windows classes
