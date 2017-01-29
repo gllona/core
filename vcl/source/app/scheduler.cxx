@@ -164,19 +164,6 @@ bool Scheduler::HasPendingTasks()
     return HasPendingTasks( rSchedCtx, nTime );
 }
 
-inline void Scheduler::UpdateMinPeriod( ImplSchedulerData * const pSchedulerData,
-                                        const sal_uInt64 nTime, sal_uInt64 &nMinPeriod )
-{
-    if ( nMinPeriod > ImmediateTimeoutMs )
-    {
-        sal_uInt64 nCurPeriod = nMinPeriod;
-        nMinPeriod = pSchedulerData->mpTask->UpdateMinPeriod( nCurPeriod, nTime );
-        assert( nMinPeriod <= nCurPeriod );
-        if ( nCurPeriod < nMinPeriod )
-            nMinPeriod = nCurPeriod;
-    }
-}
-
 inline void Scheduler::UpdateSystemTimer( ImplSchedulerContext & rSchedCtx,
                                           const sal_uInt64 nMinPeriod,
                                           const bool bForce, const sal_uInt64 nTime )
@@ -238,6 +225,8 @@ bool Scheduler::ProcessTaskScheduling()
     ImplSchedulerData *pMostUrgent = nullptr;
     ImplSchedulerData *pPrevMostUrgent = nullptr;
     sal_uInt64         nMinPeriod = InfiniteTimeoutMs;
+    sal_uInt64         nMostUrgentPeriod = InfiniteTimeoutMs;
+    sal_uInt64         nReadyPeriod = InfiniteTimeoutMs;
 
     DBG_TESTSOLARMUTEX();
 
@@ -282,16 +271,18 @@ bool Scheduler::ProcessTaskScheduling()
             goto next_entry;
 
         // skip ready tasks with lower priority than the most urgent (numerical lower is higher)
-        if ( pSchedulerData->mpTask->ReadyForSchedule( nTime ) &&
+        nReadyPeriod = pSchedulerData->mpTask->UpdateMinPeriod( nMinPeriod, nTime );
+        if ( ImmediateTimeoutMs == nReadyPeriod &&
              (!pMostUrgent || (pSchedulerData->mpTask->GetPriority() < pMostUrgent->mpTask->GetPriority())) )
         {
-            if ( pMostUrgent )
-                UpdateMinPeriod( pMostUrgent, nTime, nMinPeriod );
+            if ( pMostUrgent && nMinPeriod > nMostUrgentPeriod )
+                nMinPeriod = nMostUrgentPeriod;
             pPrevMostUrgent = pPrevSchedulerData;
             pMostUrgent = pSchedulerData;
+            nMostUrgentPeriod = nReadyPeriod;
         }
-        else
-            UpdateMinPeriod( pSchedulerData, nTime, nMinPeriod );
+        else if ( nMinPeriod > nReadyPeriod )
+            nMinPeriod = nReadyPeriod;
 
 next_entry:
         pPrevSchedulerData = pSchedulerData;
@@ -342,7 +333,8 @@ next_entry:
             if ( pMostUrgent->mpTask && pMostUrgent->mpTask->IsActive() )
             {
                 pMostUrgent->mnUpdateTime = nTime;
-                UpdateMinPeriod( pMostUrgent, nTime, nMinPeriod );
+                if ( nMinPeriod > nMostUrgentPeriod )
+                    nMinPeriod = nMostUrgentPeriod;
                 UpdateSystemTimer( rSchedCtx, nMinPeriod, false, nTime );
             }
         }
