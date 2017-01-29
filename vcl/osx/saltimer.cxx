@@ -93,17 +93,17 @@ void ImplSalStopTimer()
 void AquaSalTimer::handleStartTimerEvent( NSEvent* pEvent )
 {
     ImplSVData* pSVData = ImplGetSVData();
-    if( pSVData->mpSalTimer )
+    if( pSVData->maSchedCtx.mpSalTimer )
     {
         NSTimeInterval posted = [pEvent timestamp] + NSTimeInterval([pEvent data1])/1000.0;
         NSTimeInterval current = [NSDate timeIntervalSinceReferenceDate];
         if( (posted - current) <= 0.0 )
         {
             SolarMutexGuard aGuard;
-            if( pSVData->mpSalTimer )
+            if( pSVData->maSchedCtx.mpSalTimer )
             {
                 // timer already elapsed since event posted
-                pSVData->mpSalTimer->CallCallback();
+                pSVData->maSchedCtx.mpSalTimer->CallCallback();
             }
         }
         ImplSalStartTimer( sal_uLong( [pEvent data1] ) );

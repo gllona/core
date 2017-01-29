@@ -565,8 +565,8 @@ void X11SalData::XError( Display *pDisplay, XErrorEvent *pEvent )
 void X11SalData::Timeout()
 {
     ImplSVData* pSVData = ImplGetSVData();
-    if( pSVData->mpSalTimer )
-        pSVData->mpSalTimer->CallCallback();
+    if( pSVData->maSchedCtx.mpSalTimer )
+        pSVData->maSchedCtx.mpSalTimer->CallCallback();
 }
 
 struct YieldEntry

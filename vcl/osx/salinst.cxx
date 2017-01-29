@@ -663,9 +663,9 @@ SAL_WNODEPRECATED_DECLARATIONS_POP
             {
                 // this cause crashes on MacOSX 10.4
                 // [AquaSalTimer::pRunningTimer fire];
-                if (ImplGetSVData()->mpSalTimer != nullptr)
+                if (ImplGetSVData()->maSchedCtx.mpSalTimer != nullptr)
                 {
-                    ImplGetSVData()->mpSalTimer->CallCallback();
+                    ImplGetSVData()->maSchedCtx.mpSalTimer->CallCallback();
                 }
             }
         }

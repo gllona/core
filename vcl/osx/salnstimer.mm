@@ -33,9 +33,9 @@
     {
         SolarMutexGuard aGuard;
         ImplSVData* pSVData = ImplGetSVData();
-        if( pSVData->mpSalTimer )
+        if( pSVData->maSchedCtx.mpSalTimer )
         {
-            pSVData->mpSalTimer->CallCallback();
+            pSVData->maSchedCtx.mpSalTimer->CallCallback();
 
             // NSTimer does not end nextEventMatchingMask of NSApplication
             // so we need to wakeup a waiting Yield to inform it something happened

@@ -309,6 +309,16 @@ struct BlendFrameCache
     }
 };
 
+struct ImplSchedulerContext
+{
+    ImplSchedulerData*      mpFirstSchedulerData = nullptr; ///< list of all active tasks
+    ImplSchedulerData*      mpLastSchedulerData = nullptr;  ///< last item of the mpFirstSchedulerData queu
+    ImplSchedulerData*      mpSchedulerStack = nullptr;     ///< stack of invoked tasks
+    SalTimer*               mpSalTimer = nullptr;           ///< interface to sal event loop / system timer
+    sal_uInt64              mnTimerStart = 0;               ///< start time of the timer
+    sal_uInt64              mnTimerPeriod = SAL_MAX_UINT64; ///< current timer period
+};
+
 struct ImplSVData
 {
     SalData*                mpSalData = nullptr;
@@ -316,15 +326,10 @@ struct ImplSVData
     Application*            mpApp = nullptr;                // pApp
     VclPtr<WorkWindow>      mpDefaultWin;                   // Default-Window
     bool                    mbDeInit = false;               // Is VCL deinitializing
-    ImplSchedulerData*      mpFirstSchedulerData = nullptr; // list of all running tasks
-    ImplSchedulerData*      mpLastSchedulerData = nullptr;  // last item of the mpFirstSchedulerData list
-    ImplSchedulerData*      mpSchedulerStack = nullptr;     // stack of invoked tasks
-    SalTimer*               mpSalTimer = nullptr;           // interface to sal event loop/timers
     SalI18NImeStatus*       mpImeStatus = nullptr;          // interface to ime status window
     SalSystem*              mpSalSystem = nullptr;          // SalSystem interface
     ResMgr*                 mpResMgr = nullptr;             // SV-Resource-Manager
-    sal_uInt64              mnTimerStart = 0;               // start time of the timer
-    sal_uInt64              mnTimerPeriod = SAL_MAX_UINT64; // current timer period
+    ImplSchedulerContext    maSchedCtx;                     // indepen data for class Scheduler
     ImplSVAppData           maAppData;                      // indepen data for class Application
     ImplSVGDIData           maGDIData;                      // indepen data for Output classes
     ImplSVWinData           maWinData;                      // indepen data for Windows classes

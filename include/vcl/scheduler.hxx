@@ -26,18 +26,20 @@
 class Task;
 struct ImplSVData;
 struct ImplSchedulerData;
+struct ImplSchedulerContext;
 
 class VCL_DLLPUBLIC Scheduler
 {
     friend class Task;
     Scheduler() = delete;
 
-    static inline bool HasPendingTasks( const ImplSVData* pSVData, sal_uInt64 nTime );
+    static inline bool HasPendingTasks( const ImplSchedulerContext & rSchedCtx,
+                                        sal_uInt64 nTime );
 
     static inline void UpdateMinPeriod( ImplSchedulerData *pSchedulerData,
                                         sal_uInt64 nTime, sal_uInt64 &nMinPeriod );
 
-    static inline void UpdateSystemTimer( ImplSVData * const pSVData,
+    static inline void UpdateSystemTimer( ImplSchedulerContext & rSchedCtx,
                                           sal_uInt64 nMinPeriod,
                                           bool bForce, sal_uInt64 nTime );
 

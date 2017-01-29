@@ -167,9 +167,9 @@ void EmitTimerCallback()
 
     // Try to acquire the mutex. If we don't get the mutex then we
     // try this a short time later again.
-    if (pSVData->mpSalTimer && ImplSalYieldMutexTryToAcquire())
+    if (pSVData->maSchedCtx.mpSalTimer && ImplSalYieldMutexTryToAcquire())
     {
-        pSVData->mpSalTimer->CallCallback();
+        pSVData->maSchedCtx.mpSalTimer->CallCallback();
         ImplSalYieldMutexRelease();
 
         // Run the timer again if it was started before, and also

@@ -671,10 +671,10 @@ extern "C" {
         osl::Guard< comphelper::SolarMutex > aGuard( pSalData->m_pInstance->GetYieldMutex() );
 
         ImplSVData* pSVData = ImplGetSVData();
-        assert( pSVData->mpSalTimer == user_data );
-        if( pSVData->mpSalTimer )
+        assert( pSVData->maSchedCtx.mpSalTimer == user_data );
+        if( pSVData->maSchedCtx.mpSalTimer )
         {
-            pSVData->mpSalTimer->CallCallback();
+            pSVData->maSchedCtx.mpSalTimer->CallCallback();
         }
         return G_SOURCE_REMOVE;
     }
