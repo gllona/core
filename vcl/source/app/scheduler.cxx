@@ -65,7 +65,7 @@ inline std::basic_ostream<charT, traits> & operator <<(
 bool Scheduler::ImplInitScheduler()
 {
     ImplSVData *pSVData = ImplGetSVData();
-    assert( !pSVData->mbDeInit );
+    assert( pSVData->mbDeInit );
     ImplSchedulerContext &rSchedCtx = pSVData->maSchedCtx;
 
     rSchedCtx.mpInvokeMutex = new ::osl::Mutex();

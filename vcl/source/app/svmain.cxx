@@ -331,6 +331,8 @@ bool InitVCL()
     DebugEventInjector::getCreate();
 #endif
 
+    pSVData->mbDeInit = false;
+
     return true;
 }
 

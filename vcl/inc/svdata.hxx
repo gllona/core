@@ -334,7 +334,7 @@ struct ImplSVData
     SalInstance*            mpDefInst = nullptr;            // Default SalInstance
     Application*            mpApp = nullptr;                // pApp
     VclPtr<WorkWindow>      mpDefaultWin;                   // Default-Window
-    bool                    mbDeInit = false;               // Is VCL deinitializing
+    bool                    mbDeInit = true;                // Is VCL deinitialized
     SalI18NImeStatus*       mpImeStatus = nullptr;          // interface to ime status window
     SalSystem*              mpSalSystem = nullptr;          // SalSystem interface
     ResMgr*                 mpResMgr = nullptr;             // SV-Resource-Manager
